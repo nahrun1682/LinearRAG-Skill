@@ -7,11 +7,15 @@ PASSAGES = [
     {"id": "p1", "title": "", "text": "Tokyo is big. Alice visited Tokyo."},
 ]
 
-# フェイク: ". " で文分割、大文字始まりの語をエンティティとみなす
-def fake_analyze(text):
+# フェイク: ". " で文分割、大文字始まりの語をエンティティとみなす。
+# バッチAPI: texts -> テキストごとの [(sentence, [entity, ...]), ...]
+def _analyze_one(text):
     sents = [s.strip() + "." for s in text.rstrip(".").split(". ") if s.strip()]
     return [(sent, [w.strip(".") for w in sent.split() if w[0].isupper()])
             for sent in sents]
+
+def fake_analyze(texts):
+    return [_analyze_one(text) for text in texts]
 
 def _make_fake_embed():
     rng = np.random.default_rng(0)
@@ -69,3 +73,17 @@ def test_assemble_keeps_passages_with_no_sentences():
     assert all(s["passage"] == 1 for s in index.sentences)
     assert index.C.shape[0] == 2
     assert index.M.shape[0] == 1
+
+
+def test_repeated_entity_in_one_sentence_counts_once_in_M_twice_in_C():
+    # 同一文内に同じエンティティ(Tokyo)が2回出るケース。
+    # M は二値なので 1、C は出現回数なので 2 になること。
+    def analyze(texts):
+        # 1文・Tokyo が2回
+        return [[("Tokyo and Tokyo.", ["Tokyo", "Tokyo"])]]
+    passages = [{"id": "p", "title": "", "text": "irrelevant"}]
+    index = assemble_tri_graph(passages, analyze, fake_embed)
+    e = {name: i for i, name in enumerate(index.entities)}
+    assert index.entities == ["tokyo"]
+    assert index.M[0, e["tokyo"]] == 1
+    assert index.C[0, e["tokyo"]] == 2

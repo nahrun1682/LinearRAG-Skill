@@ -70,16 +70,23 @@ def load_nlp(lang: str):
 
 
 def make_analyzer(nlp):
-    """Return analyze(text) -> [(sentence, [entity surface, ...]), ...].
+    """Return analyze(texts) -> per-text list of (sentence, [entity surface, ...]).
 
-    Sentence segmentation and NER are driven by a single spaCy pass so each
-    sentence carries exactly the entities detected within it. Blank sentences
-    are dropped.
+    Sentence segmentation and NER are driven by a single batched spaCy pass
+    (``nlp.pipe``) so each sentence carries exactly the entities detected
+    within it. Blank sentences are dropped.
     """
-    def analyze(text: str):
-        doc = nlp(text)
-        return [(sent.text.strip(), [ent.text for ent in sent.ents])
-                for sent in doc.sents if sent.text.strip()]
+    if not (nlp.has_pipe("parser") or nlp.has_pipe("senter")):
+        raise ValueError(
+            f"spaCy pipeline '{nlp.meta['name']}' has no 'parser' or 'senter'; "
+            "cannot split sentences via doc.sents")
+
+    def analyze(texts: list[str]) -> list[list[tuple[str, list[str]]]]:
+        return [
+            [(sent.text.strip(), [ent.text for ent in sent.ents])
+             for sent in doc.sents if sent.text.strip()]
+            for doc in nlp.pipe(texts, batch_size=32)
+        ]
     return analyze
 
 

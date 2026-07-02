@@ -94,17 +94,20 @@ def assemble_tri_graph(passages, analyze, embed,
     """Build the Tri-Graph (paper §3.1): sentence/entity nodes plus the
     contain matrix C (counts) and mention matrix M (binary).
 
-    ``analyze(text) -> [(sentence, [entity surface, ...]), ...]`` splits a
-    passage into sentences and yields each sentence's entity surface forms.
+    ``analyze(texts) -> [[(sentence, [entity surface, ...]), ...], ...]`` splits
+    each passage into sentences and yields each sentence's entity surface forms
+    in a single batched pass.
     """
     sentences: list[dict] = []
     entity_ids: dict[str, int] = {}
     m_rows, m_cols = [], []
     c_rows, c_cols, c_vals = [], [], []
 
-    for p_idx, passage in enumerate(passages):
+    analyzed = analyze([p["text"] for p in passages])
+
+    for p_idx, sents in enumerate(analyzed):
         occurrence = Counter()
-        for sent, surfaces in analyze(passage["text"]):
+        for sent, surfaces in sents:
             s_idx = len(sentences)
             sentences.append({"text": sent, "passage": p_idx})
             seen_in_sentence = set()
@@ -160,7 +163,7 @@ def main() -> None:
         raise SystemExit(f"no passages found in {args.input}")
 
     lang = args.lang if args.lang != "auto" else detect_language(
-        [p["text"] for p in passages])
+        [p["text"] for p in passages[:50]])
     model_name = args.model or DEFAULT_EMBEDDING_MODEL
     print(f"passages={len(passages)} lang={lang} model={model_name}")
 

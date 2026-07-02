@@ -78,7 +78,7 @@ def make_analyzer(nlp):
     """
     if not (nlp.has_pipe("parser") or nlp.has_pipe("senter")):
         raise ValueError(
-            f"spaCy pipeline '{nlp.meta['name']}' has no 'parser' or 'senter'; "
+            f"spaCy pipeline '{nlp.meta.get('lang', '?')}_{nlp.meta['name']}' has no 'parser' or 'senter'; "
             "cannot split sentences via doc.sents")
 
     def analyze(texts: list[str]) -> list[list[tuple[str, list[str]]]]:

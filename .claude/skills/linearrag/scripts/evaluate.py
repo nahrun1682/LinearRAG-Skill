@@ -50,6 +50,7 @@ def main() -> None:
         questions = questions[: args.limit]
 
     contain_hits, ev_hits, ev_total = 0, 0, 0
+    sent_hits, sent_total = 0, 0
     t0 = time.time()
     for q in questions:
         result = retriever(q["question"], top_k=args.top_k, delta=args.delta,
@@ -62,11 +63,19 @@ def main() -> None:
 
         activated = {r["entity"] for r in result["activated_entities"]}
         evidence_entities = set()
+        joined_norm = " ".join(joined.split())
         for step in q.get("evidence", []):
-            if not isinstance(step, (list, tuple)):
-                raise TypeError(
-                    f"evidence step must be a [subject, relation, object] list, "
-                    f"got {type(step).__name__}")
+            if isinstance(step, str):
+                # Sentence-style evidence (e.g. Medical): count as recalled
+                # when the evidence sentence appears in the retrieved text.
+                sent_total += 1
+                sent_hits += " ".join(step.casefold().split()) in joined_norm
+                continue
+            # Entity recall only applies to triple-style evidence
+            # ([subject, relation, object]); skip anything else.
+            if (not isinstance(step, (list, tuple)) or len(step) < 2
+                    or not all(isinstance(x, str) for x in step)):
+                continue
             evidence_entities.add(normalize_entity(str(step[0])))
             evidence_entities.add(normalize_entity(str(step[-1])))
         evidence_entities.discard("")
@@ -84,6 +93,8 @@ def main() -> None:
     print(f"\nRetrieval-Contain: {contain_hits}/{n} = {contain_hits / n:.1%}")
     if ev_total:
         print(f"Evidence-Entity Recall: {ev_hits}/{ev_total} = {ev_hits / ev_total:.1%}")
+    if sent_total:
+        print(f"Evidence-Sentence Recall: {sent_hits}/{sent_total} = {sent_hits / sent_total:.1%}")
     print(f"avg retrieval time: {elapsed / n:.3f}s/query (total {elapsed:.1f}s incl. model load)")
 
 

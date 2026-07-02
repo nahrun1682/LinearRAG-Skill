@@ -6,6 +6,7 @@ the paper's equations. Written independently of the reference implementation.
 from __future__ import annotations
 
 import re
+import unicodedata
 
 _JA_CHARS = re.compile(r"[぀-ヿ一-鿿]")
 
@@ -23,5 +24,5 @@ def detect_language(texts: list[str], sample_size: int = 50) -> str:
 
 
 def normalize_entity(surface: str) -> str:
-    """Casefold and collapse whitespace so mentions align across passages."""
-    return " ".join(surface.casefold().split())
+    """NFKC-normalize, casefold, and collapse whitespace so mentions align."""
+    return " ".join(unicodedata.normalize("NFKC", surface).casefold().split())

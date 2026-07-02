@@ -16,3 +16,10 @@ def test_detect_language_empty():
 def test_normalize_entity_casefold_and_whitespace():
     assert normalize_entity("  Frederick   Barbarossa ") == "frederick barbarossa"
     assert normalize_entity("TOKYO") == "tokyo"
+
+
+def test_normalize_entity_nfkc_and_edge_cases():
+    assert normalize_entity("ＩＢＭ") == "ibm"          # 全角英数 → NFKC
+    assert normalize_entity("東京　タワー") == "東京 タワー"  # 全角スペース
+    assert normalize_entity("") == ""
+    assert normalize_entity("   ") == ""

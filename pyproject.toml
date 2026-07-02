@@ -1,0 +1,14 @@
+[project]
+name = "linearrag-skill"
+version = "0.1.0"
+description = "LinearRAG (arXiv:2510.10114) as a Claude Code skill"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "numpy>=2.0",
+    "scipy>=1.14",
+]

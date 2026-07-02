@@ -8,11 +8,10 @@ PASSAGES = [
 ]
 
 # フェイク: ". " で文分割、大文字始まりの語をエンティティとみなす
-def fake_split(text):
-    return [s.strip() + "." for s in text.rstrip(".").split(". ") if s.strip()]
-
-def fake_ner(sentence):
-    return [w.strip(".") for w in sentence.split() if w[0].isupper()]
+def fake_analyze(text):
+    sents = [s.strip() + "." for s in text.rstrip(".").split(". ") if s.strip()]
+    return [(sent, [w.strip(".") for w in sent.split() if w[0].isupper()])
+            for sent in sents]
 
 def _make_fake_embed():
     rng = np.random.default_rng(0)
@@ -24,7 +23,7 @@ fake_embed = _make_fake_embed()
 
 
 def test_assemble_builds_nodes_and_edges():
-    index = assemble_tri_graph(PASSAGES, fake_split, fake_ner, fake_embed)
+    index = assemble_tri_graph(PASSAGES, fake_analyze, fake_embed)
 
     assert len(index.passages) == 2
     assert len(index.sentences) == 4
@@ -50,7 +49,7 @@ def test_assemble_builds_nodes_and_edges():
 
 def test_assemble_skips_entityless_passages_gracefully():
     passages = [{"id": "x", "title": "", "text": "nothing here at all."}]
-    index = assemble_tri_graph(passages, fake_split, fake_ner, fake_embed)
+    index = assemble_tri_graph(passages, fake_analyze, fake_embed)
     assert index.C.shape == (1, 0)
     assert index.M.shape == (1, 0)
     assert index.entities == []
@@ -63,7 +62,7 @@ def test_assemble_keeps_passages_with_no_sentences():
         {"id": "empty", "title": "", "text": ""},
         {"id": "p", "title": "", "text": "Alice met Bob."},
     ]
-    index = assemble_tri_graph(passages, fake_split, fake_ner, fake_embed)
+    index = assemble_tri_graph(passages, fake_analyze, fake_embed)
     assert len(index.passages) == 2
     # only the second passage contributes sentences
     assert len(index.sentences) == 1

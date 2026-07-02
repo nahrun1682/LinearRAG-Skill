@@ -39,6 +39,20 @@ def normalize_entity(surface: str) -> str:
     return " ".join(unicodedata.normalize("NFKC", surface).casefold().split())
 
 
+def make_analyzer(nlp):
+    """Return analyze(text) -> [(sentence, [entity surface, ...]), ...].
+
+    Sentence segmentation and NER are driven by a single spaCy pass so each
+    sentence carries exactly the entities detected within it. Blank sentences
+    are dropped.
+    """
+    def analyze(text: str):
+        doc = nlp(text)
+        return [(sent.text.strip(), [ent.text for ent in sent.ents])
+                for sent in doc.sents if sent.text.strip()]
+    return analyze
+
+
 @dataclass(eq=False)
 class TriGraphIndex:
     """Relation-free Tri-Graph: passage/sentence/entity nodes, C and M edges."""

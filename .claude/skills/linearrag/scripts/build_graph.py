@@ -81,10 +81,14 @@ def load_corpus(path: str | Path, max_chars: int = 1000) -> list[dict]:
     return passages
 
 
-def assemble_tri_graph(passages, split_sentences, extract_entities, embed,
+def assemble_tri_graph(passages, analyze, embed,
                        meta: dict | None = None) -> TriGraphIndex:
     """Build the Tri-Graph (paper §3.1): sentence/entity nodes plus the
-    contain matrix C (counts) and mention matrix M (binary)."""
+    contain matrix C (counts) and mention matrix M (binary).
+
+    ``analyze(text) -> [(sentence, [entity surface, ...]), ...]`` splits a
+    passage into sentences and yields each sentence's entity surface forms.
+    """
     sentences: list[dict] = []
     entity_ids: dict[str, int] = {}
     m_rows, m_cols = [], []
@@ -92,11 +96,11 @@ def assemble_tri_graph(passages, split_sentences, extract_entities, embed,
 
     for p_idx, passage in enumerate(passages):
         occurrence = Counter()
-        for sent in split_sentences(passage["text"]):
+        for sent, surfaces in analyze(passage["text"]):
             s_idx = len(sentences)
             sentences.append({"text": sent, "passage": p_idx})
             seen_in_sentence = set()
-            for surface in extract_entities(sent):
+            for surface in surfaces:
                 name = normalize_entity(surface)
                 if not name:
                     continue

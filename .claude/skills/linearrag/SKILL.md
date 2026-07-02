@@ -72,6 +72,10 @@ Retrieval-Contain（正解文字列がtop-k内に出現する率）と Evidence-
 Retrieval-Contain **72.9%**（δ=0.5では69.6%）、0.135秒/クエリ。
 論文の2Wiki Contain-Acc 70.2%（GPT-4o-mini生成込み）と同水準。
 
+日本語実測（JSQuAD valid 1000問、1,145パッセージ、ja_core_news_sm索引、top-5）:
+Retrieval-Contain **74.3%** / Gold-Passage Hit@5 **65.7%**、0.027秒/クエリ。
+デフォルトパラメータのままで日本語コーパスでも動作する（δ・λの感度は±1pt以内）。
+
 ## トラブルシューティング
 
 - **検索精度が低い**: まずエンティティ語彙を疑う。`entities.json` にクエリの固有名詞が

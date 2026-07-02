@@ -37,6 +37,7 @@ def main() -> None:
     parser.add_argument("--w-p", type=float, default=0.05)
     parser.add_argument("--damping", type=float, default=0.5)
     parser.add_argument("--sigma-top-n", type=int, default=200)
+    parser.add_argument("--max-iterations", type=int, default=4)
     parser.add_argument("--limit", type=int, default=0, help="evaluate first N questions only")
     args = parser.parse_args()
 
@@ -52,6 +53,7 @@ def main() -> None:
     t0 = time.time()
     for q in questions:
         result = retriever(q["question"], top_k=args.top_k, delta=args.delta,
+                           max_iterations=args.max_iterations,
                            lam=args.lam, w_p=args.w_p, damping=args.damping,
                            sigma_top_n=args.sigma_top_n)
         joined = " ".join(p["text"] for p in result["passages"]).casefold()
@@ -61,6 +63,10 @@ def main() -> None:
         activated = {r["entity"] for r in result["activated_entities"]}
         evidence_entities = set()
         for step in q.get("evidence", []):
+            if not isinstance(step, (list, tuple)):
+                raise TypeError(
+                    f"evidence step must be a [subject, relation, object] list, "
+                    f"got {type(step).__name__}")
             evidence_entities.add(normalize_entity(str(step[0])))
             evidence_entities.add(normalize_entity(str(step[-1])))
         evidence_entities.discard("")
@@ -71,6 +77,9 @@ def main() -> None:
         print(f"[{mark}] {q['question'][:70]}  ans={q['answer'][:30]}")
 
     n = len(questions)
+    if n == 0:
+        print("no questions to evaluate")
+        return
     elapsed = time.time() - t0
     print(f"\nRetrieval-Contain: {contain_hits}/{n} = {contain_hits / n:.1%}")
     if ev_total:

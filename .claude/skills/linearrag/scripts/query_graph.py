@@ -167,7 +167,8 @@ _NUMERIC_NER_LABELS = {"CARDINAL", "ORDINAL", "QUANTITY", "PERCENT",
 
 
 def _sparsify_top_n(values: np.ndarray, top_n: int) -> np.ndarray:
-    """Zero out all but the top_n largest entries.
+    """Zero out all but the top_n largest entries (soft bound: entries tied
+    at the threshold value all survive).
 
     Dense query-sentence similarities make eq.5 sum mass from every sentence
     in the corpus, which lets high-degree entities blow up exponentially.

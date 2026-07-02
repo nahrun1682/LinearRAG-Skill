@@ -32,7 +32,7 @@ def main() -> None:
     parser.add_argument("--index", required=True)
     parser.add_argument("--questions", required=True, help="questions.json path")
     parser.add_argument("--top-k", type=int, default=5)
-    parser.add_argument("--delta", type=float, default=0.5)
+    parser.add_argument("--delta", type=float, default=0.8)
     parser.add_argument("--lam", type=float, default=1.5)
     parser.add_argument("--w-p", type=float, default=0.05)
     parser.add_argument("--damping", type=float, default=0.5)

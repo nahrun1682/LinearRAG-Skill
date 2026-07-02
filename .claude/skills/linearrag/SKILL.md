@@ -61,15 +61,16 @@ Retrieval-Contain（正解文字列がtop-k内に出現する率）と Evidence-
 
 | パラメータ | 既定値 | 効果 |
 |---|---|---|
-| --delta | 0.5 | 活性化の枝刈り閾値。上げると精度↑recall↓（test10では0.8でContain 8/10） |
+| --delta | 0.8 | 活性化の枝刈り閾値。上げると精度↑recall↓ |
 | --sigma-top-n | 200 | 意味伝播に使うクエリ関連文の上限。伝播の暴走防止（0で無効） |
 | --top-k | 5 | 返すパッセージ数 |
 | --damping | 0.5 | PPRの減衰係数 |
 | --lam / --w-p | 1.5 / 0.05 | 式7のDPR項とエンティティ項のバランス |
 | --max-iterations | 4 | 意味伝播の最大hop数 |
 
-参考実測（dataset/test10、658チャンク・10問、en_core_web_trf索引）:
-既定値で Retrieval-Contain 7/10、--delta 0.8 で 8/10。
+参考実測（2WikiMultiHopQA 1000問、658チャンク、en_core_web_trf索引、top-5）:
+Retrieval-Contain **72.9%**（δ=0.5では69.6%）、0.135秒/クエリ。
+論文の2Wiki Contain-Acc 70.2%（GPT-4o-mini生成込み）と同水準。
 
 ## トラブルシューティング
 

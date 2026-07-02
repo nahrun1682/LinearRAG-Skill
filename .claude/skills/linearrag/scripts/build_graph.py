@@ -13,14 +13,22 @@
 """Build a LinearRAG Tri-Graph index from a corpus (paper §3.1, token-free)."""
 from __future__ import annotations
 
+import argparse
 import json
+import time
 from collections import Counter
 from pathlib import Path
 
 import numpy as np
 from scipy import sparse
 
-from common import TriGraphIndex, normalize_entity
+from common import (
+    DEFAULT_EMBEDDING_MODEL,
+    SPACY_MODELS,
+    TriGraphIndex,
+    detect_language,
+    normalize_entity,
+)
 
 
 def _split_paragraphs(text: str, max_chars: int) -> list[str]:
@@ -133,3 +141,41 @@ def assemble_tri_graph(passages, analyze, embed,
         emb_entities=embed(entities) if entities else np.zeros((0, 1), dtype=np.float32),
         meta=meta or {},
     )
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Build a LinearRAG Tri-Graph index")
+    parser.add_argument("--input", required=True, help="corpus dir / .jsonl / chunks.json")
+    parser.add_argument("--output", required=True, help="index output directory")
+    parser.add_argument("--lang", choices=["auto", "en", "ja"], default="auto")
+    parser.add_argument("--model", default=None, help="sentence-transformers model name")
+    parser.add_argument("--max-chars", type=int, default=1000)
+    args = parser.parse_args()
+
+    from common import Embedder, load_nlp, make_analyzer
+
+    t0 = time.time()
+    passages = load_corpus(args.input, max_chars=args.max_chars)
+    if not passages:
+        raise SystemExit(f"no passages found in {args.input}")
+
+    lang = args.lang if args.lang != "auto" else detect_language(
+        [p["text"] for p in passages])
+    model_name = args.model or DEFAULT_EMBEDDING_MODEL
+    print(f"passages={len(passages)} lang={lang} model={model_name}")
+
+    nlp = load_nlp(lang)
+    embed = Embedder(model_name)
+
+    meta = {"language": lang, "embedding_model": model_name,
+            "spacy_model": SPACY_MODELS[lang], "num_passages": len(passages)}
+    index = assemble_tri_graph(passages, make_analyzer(nlp), embed, meta)
+    index.save(args.output)
+
+    print(f"sentences={len(index.sentences)} entities={len(index.entities)}")
+    print(f"edges: C(nnz)={index.C.nnz} M(nnz)={index.M.nnz}")
+    print(f"done in {time.time() - t0:.1f}s -> {args.output}")
+
+
+if __name__ == "__main__":
+    main()

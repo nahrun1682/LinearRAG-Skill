@@ -71,3 +71,30 @@ def activate_entities(
         levels[newly] = it
         trace.append(np.flatnonzero(newly).tolist())
     return a, levels, trace
+
+
+def _min_max(x: np.ndarray) -> np.ndarray:
+    lo, hi = float(x.min()), float(x.max())
+    if hi - lo < 1e-12:
+        return np.zeros_like(x)
+    return (x - lo) / (hi - lo)
+
+
+def passage_seed_scores(sim_qp: np.ndarray, C: sparse.csr_matrix,
+                        activation: np.ndarray, levels: np.ndarray,
+                        lam: float = 1.5, w_p: float = 0.05) -> np.ndarray:
+    """Paper eq.7: hybrid initialization of passage nodes.
+
+    score(p) = (lam * minmax(sim(q,p)) + ln(1 + sum_i a_i * ln(1+N_pi) / L_i)) * w_p
+    where N_pi is the occurrence count of entity i in passage p and L_i is the
+    activation level from stage 1 (Task 8's levels; 0 = inactive).
+    """
+    dpr = _min_max(sim_qp.astype(np.float64))
+    C_log = C.astype(np.float64).copy()
+    C_log.data = np.log1p(C_log.data)
+    inv_level = np.divide(activation.astype(np.float64),
+                          np.maximum(levels, 1),
+                          out=np.zeros_like(activation, dtype=np.float64),
+                          where=levels > 0)
+    bonus = np.asarray(C_log @ inv_level).ravel()
+    return ((lam * dpr + np.log1p(bonus)) * w_p).astype(np.float32)

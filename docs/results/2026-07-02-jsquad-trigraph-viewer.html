@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LinearRAG Tri-Graph ビューア（JSQuAD索引）</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/standalone/umd/vis-network.min.js"></script>
+<style>
+  :root { --text: #0b0b0b; --sec: #52514e; --muted: #898781; --border: #e1e0d9; --surface: #f6f5f2; }
+  body { font-family: -apple-system, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+         color: var(--text); max-width: 900px; margin: 2rem auto; padding: 0 1.25rem; line-height: 1.7; background: #fff; }
+  h1 { font-size: 22px; font-weight: 500; }
+  h2 { font-size: 16px; font-weight: 500; margin: 2.5rem 0 4px; }
+  .meta { font-size: 13px; color: var(--muted); }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin: 1rem 0 0; }
+  .kpi { background: var(--surface); border-radius: 8px; padding: 0.8rem 1rem; }
+  .kpi .label { font-size: 12px; color: var(--muted); }
+  .kpi .value { font-size: 20px; font-weight: 500; }
+  .net { width: 100%; height: 540px; border: 1px solid var(--border); border-radius: 12px; margin: 8px 0; }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 12.5px; color: var(--sec); margin: 6px 0; }
+  .legend span { display: flex; align-items: center; gap: 5px; }
+  .sw { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+  .dot { border-radius: 50%; }
+  .note { font-size: 13px; color: var(--sec); border-left: 3px solid var(--border); padding-left: 12px; }
+  .q { background: var(--surface); border-radius: 8px; padding: 0.6rem 1rem; font-size: 14px; display: inline-block; }
+</style>
+</head>
+<body>
+
+<h1>LinearRAG Tri-Graph ビューア</h1>
+<p class="meta">JSQuAD索引（linearrag_index/jsquad）の実データ ・ 2026-07-02 ・ ノードをドラッグ／ホバーで本文表示</p>
+<div class="kpis">
+  <div class="kpi"><div class="label">パッセージ</div><div class="value">1,145</div></div>
+  <div class="kpi"><div class="label">文</div><div class="value">4,573</div></div>
+  <div class="kpi"><div class="label">エンティティ</div><div class="value">4,262</div></div>
+  <div class="kpi"><div class="label">C行列エッジ</div><div class="value">6,984</div></div>
+  <div class="kpi"><div class="label">M行列エッジ</div><div class="value">7,636</div></div>
+</div>
+
+<h2>1. Tri-Graphの構造 — 「梅雨」記事の近傍</h2>
+<p class="note">論文のTri-Graph（式1・2）そのもの：パッセージとエンティティを結ぶ<b>contain行列C</b>（実線・太さ=出現回数）、文とエンティティを結ぶ<b>mention行列M</b>（破線）。関係ラベルは持たない。文ノードは先頭パッセージの3文のみ表示。</p>
+<div class="legend">
+  <span><span class="sw" style="background:#B5D4F4; border:1.5px solid #185FA5;"></span>パッセージ</span>
+  <span><span class="sw dot" style="background:#9FE1CB; border:1.5px solid #0F6E56;"></span>エンティティ</span>
+  <span><span class="sw" style="background:#F1EFE8; border:1.5px solid #888780; transform:rotate(45deg);"></span>文</span>
+  <span>― C: passage–entity（太さ=出現回数）</span>
+  <span>┄ M: sentence–entity</span>
+</div>
+<div id="netA" class="net" role="img" aria-label="梅雨記事の4パッセージと16エンティティ、3文を結ぶTri-Graphのネットワーク図"></div>
+
+<h2>2. 2段階検索の実挙動 — エンティティ活性化の橋渡し</h2>
+<p class="q">Q:「日本で梅雨がないのは北海道とどこか。」（正解: 小笠原諸島）</p>
+<p class="note">クエリから抽出された「日本」「北海道」（level 1）を種に、文の意味伝播で「朝鮮半島」「<b>小笠原諸島</b>」等が level 2 で活性化。正解エンティティが橋渡しで発見され、それを含むパッセージ p0 が1位に検索された。rank 2 の「サケ」は共有エンティティ（日本・太平洋等）経由で混入したノイズで、正直な実挙動。</p>
+<div class="legend">
+  <span><span class="sw dot" style="background:#F0997B; border:1.5px solid #993C1D;"></span>level 1（クエリ直結）</span>
+  <span><span class="sw dot" style="background:#9FE1CB; border:1.5px solid #0F6E56;"></span>level 2（1-hop橋渡し）</span>
+  <span><span class="sw dot" style="background:#D3D1C7; border:1.5px solid #5F5E5A;"></span>level 3（2-hop）</span>
+  <span><span class="sw" style="background:#B5D4F4; border:1.5px solid #185FA5;"></span>検索されたパッセージ（rank付き）</span>
+  <span><span class="sw" style="background:#F5C4B3; border:1.5px solid #993C1D;"></span>クエリ</span>
+</div>
+<div id="netB" class="net" role="img" aria-label="クエリのエンティティ活性化と検索パッセージのネットワーク図。日本と北海道がlevel1、小笠原諸島などがlevel2で活性化"></div>
+
+<p class="meta">LinearRAG-Skill — arXiv:2510.10114 のクリーンルーム実装。抽出元: linearrag_index/jsquad（ja_core_news_sm・paraphrase-multilingual-mpnet-base-v2）</p>
+
+<script>
+const DATA = {
+ a: {"passages": [{"idx": 0, "title": "梅雨", "text": "梅雨（つゆ、ばいう）は、北海道と小笠原諸島を除く日本、朝鮮半島南部、中国の南部から長江流域にかけての沿海部、および台湾など、東アジアの広範囲においてみられる特有の気象現象で、5月から7月にかけて来る曇りや雨の多い期間のこと。"}, {"idx": 1, "title": "梅雨", "text": "梅雨の時期が始まることを梅雨入りや入梅（にゅうばい）といい、社会通念上・気象学上は春の終わりであるとともに夏の始まり（初夏）とされる。"}, {"idx": 2, "title": "梅雨", "text": "冬の間、シベリアから中国大陸にかけての広範囲を冷たく乾燥したシベリア気団が覆っている。シベリア気団はしばしば南下して寒波をもたらし、日本の日本海側に大雪を降らせる…"}, {"idx": 3, "title": "梅雨", "text": "冬が終わり春が近づくにつれ、シベリア気団は勢力が弱くなり、次第に北上していく。代わって中国大陸には暖かく乾燥した揚子江気団ができ始め、勢力を強めていく。"}],
+ "entities": [{"idx": 0, "name": "北海道"}, {"idx": 1, "name": "小笠原諸島"}, {"idx": 2, "name": "日本"}, {"idx": 3, "name": "朝鮮半島"}, {"idx": 4, "name": "中国"}, {"idx": 5, "name": "台湾"}, {"idx": 6, "name": "東アジア"}, {"idx": 7, "name": "5月"}, {"idx": 8, "name": "7月"}, {"idx": 9, "name": "曇り"}, {"idx": 10, "name": "(6月11日"}, {"idx": 11, "name": "シベリア"}, {"idx": 12, "name": "日本海"}, {"idx": 13, "name": "チベット"}, {"idx": 14, "name": "インド"}, {"idx": 15, "name": "フィリピン"}],
+ "sentences": [{"idx": 0, "text": "梅雨。"}, {"idx": 1, "text": "梅雨（つゆ、ばいう）は、北海道と小笠原諸島を除く日本、朝鮮半島南部、中国の南部から…"}, {"idx": 2, "text": "雨季の一種である。"}],
+ "edges_pe": [[0,0,1],[0,1,1],[0,2,1],[0,3,1],[0,4,1],[0,5,1],[0,6,1],[0,7,1],[0,8,1],[0,9,1],[1,2,1],[1,10,1],[2,2,1],[2,4,1],[2,11,3],[2,12,1],[2,13,2],[2,14,1],[2,15,1],[3,2,1],[3,3,1],[3,4,1],[3,11,1]],
+ "edges_se": [[1,0],[1,1],[1,2],[1,3],[1,4],[1,5],[1,6],[1,7],[1,8],[1,9]]},
+ b: {"query": "日本で梅雨がないのは北海道とどこか。",
+ "activated": [{"entity": "日本", "level": 1}, {"entity": "北海道", "level": 1}, {"entity": "朝鮮半島", "level": 2}, {"entity": "中国", "level": 2}, {"entity": "7月", "level": 2}, {"entity": "5月", "level": 2}, {"entity": "小笠原諸島", "level": 2}, {"entity": "東アジア", "level": 2}, {"entity": "日本海", "level": 2}, {"entity": "台湾", "level": 2}, {"entity": "曇り", "level": 2}, {"entity": "気象庁", "level": 2}, {"entity": "東北地方", "level": 2}, {"entity": "南西諸島", "level": 2}, {"entity": "本州", "level": 2}, {"entity": "北海道・東北地方", "level": 2}, {"entity": "梅雨入り・梅雨", "level": 2}, {"entity": "太平洋", "level": 2}, {"entity": "京都市", "level": 2}, {"entity": "九州", "level": 3}, {"entity": "関東地方", "level": 3}, {"entity": "チベット", "level": 3}],
+ "passages": [{"id": "p0", "rank": 1, "title": "梅雨", "score": 0.018447, "text": "梅雨（つゆ、ばいう）は、北海道と小笠原諸島を除く日本、朝鮮半島南部…5月から7月にかけて来る曇りや雨の多い期間のこと。"}, {"id": "p1136", "rank": 2, "title": "サケ", "score": 0.011856, "text": "日本で定常的に遡上が認められる南限の河川は、太平洋側は千葉県の九十九里浜に注ぐ栗山川であり…"}, {"id": "p10", "rank": 3, "title": "梅雨", "score": 0.011058, "text": "次に梅雨前線は中国の江淮（長江流域・淮河流域）に北上する。7月に入ると東北地方も梅雨入りし、北海道を除く日本の本土地域が本格的な長雨に突入する。"}, {"id": "p42", "rank": 4, "title": "梅雨", "score": 0.010551, "text": "統計的にみて、エルニーニョ現象が発生したときは、日本各地で梅雨入り・梅雨明け共に遅くなる傾向にあり…"}, {"id": "p27", "rank": 5, "title": "梅雨", "score": 0.009246, "text": "北海道の中でも南西部太平洋側（渡島・胆振・日高）では本州の梅雨末期に大雨が降る事がある。"}],
+ "edges": [["日本","p0"],["日本","p1136"],["日本","p10"],["日本","p42"],["北海道","p0"],["北海道","p10"],["北海道","p27"],["朝鮮半島","p0"],["朝鮮半島","p1136"],["朝鮮半島","p10"],["中国","p0"],["中国","p10"],["7月","p0"],["7月","p10"],["5月","p0"],["小笠原諸島","p0"],["東アジア","p0"],["日本海","p1136"],["台湾","p0"],["曇り","p0"],["東北地方","p10"],["南西諸島","p10"],["本州","p27"],["梅雨入り・梅雨","p42"],["太平洋","p1136"],["太平洋","p27"],["九州","p10"],["関東地方","p10"],["チベット","p10"]]}
+};
+
+const FONT = { face: '-apple-system, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif', size: 13, color: '#0b0b0b' };
+const OPTS = {
+  physics: { barnesHut: { gravitationalConstant: -3500, springLength: 120, avoidOverlap: 0.2 },
+             stabilization: { iterations: 250 } },
+  interaction: { hover: true, tooltipDelay: 120 },
+  edges: { color: { color: '#c3c2b7', hover: '#888780' }, smooth: { type: 'continuous' } }
+};
+
+const nodesA = [], edgesA = [];
+DATA.a.passages.forEach(p => nodesA.push({
+  id: 'p' + p.idx, label: 'p' + p.idx + ' ' + p.title, shape: 'box',
+  color: { background: '#B5D4F4', border: '#185FA5' }, font: FONT, margin: 8,
+  title: p.text }));
+DATA.a.entities.forEach(e => nodesA.push({
+  id: 'e' + e.idx, label: e.name, shape: 'dot', size: 11,
+  color: { background: '#9FE1CB', border: '#0F6E56' }, font: FONT }));
+DATA.a.sentences.forEach(s => nodesA.push({
+  id: 's' + s.idx, label: '文' + s.idx, shape: 'diamond', size: 9,
+  color: { background: '#F1EFE8', border: '#888780' }, font: { ...FONT, size: 11, color: '#5F5E5A' },
+  title: s.text }));
+DATA.a.edges_pe.forEach(([p, e, c]) => edgesA.push({
+  from: 'p' + p, to: 'e' + e, width: Math.min(1 + c, 4),
+  title: '出現回数: ' + c }));
+DATA.a.edges_se.forEach(([s, e]) => edgesA.push({
+  from: 's' + s, to: 'e' + e, dashes: [4, 4], width: 1 }));
+new vis.Network(document.getElementById('netA'), { nodes: nodesA, edges: edgesA }, OPTS);
+
+const LV = { 1: { bg: '#F0997B', bd: '#993C1D', size: 16 },
+             2: { bg: '#9FE1CB', bd: '#0F6E56', size: 12 },
+             3: { bg: '#D3D1C7', bd: '#5F5E5A', size: 10 } };
+const nodesB = [], edgesB = [];
+nodesB.push({ id: 'Q', label: 'クエリ', shape: 'box',
+  color: { background: '#F5C4B3', border: '#993C1D' }, font: { ...FONT, size: 14 }, margin: 10,
+  title: DATA.b.query });
+const shown = new Set();
+DATA.b.activated.forEach(a => {
+  shown.add(a.entity);
+  const s = LV[a.level] || LV[3];
+  nodesB.push({ id: 'E:' + a.entity, label: a.entity, shape: 'dot', size: s.size,
+    color: { background: s.bg, border: s.bd }, font: FONT,
+    title: 'level ' + a.level });
+  if (a.level === 1) edgesB.push({ from: 'Q', to: 'E:' + a.entity, dashes: [6, 4], width: 2,
+    color: { color: '#D85A30' } });
+});
+DATA.b.passages.forEach(p => nodesB.push({
+  id: 'P:' + p.id, label: '#' + p.rank + ' ' + p.title + ' (' + p.id + ')', shape: 'box',
+  color: { background: '#B5D4F4', border: '#185FA5' }, font: FONT, margin: 8,
+  title: 'score ' + p.score + ' — ' + p.text }));
+DATA.b.edges.forEach(([e, p]) => {
+  if (shown.has(e)) edgesB.push({ from: 'E:' + e, to: 'P:' + p, width: 1 });
+});
+new vis.Network(document.getElementById('netB'), { nodes: nodesB, edges: edgesB }, OPTS);
+</script>
+</body>
+</html>

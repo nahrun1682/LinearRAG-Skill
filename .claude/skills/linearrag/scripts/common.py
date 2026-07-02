@@ -86,11 +86,16 @@ def make_analyzer(nlp):
             f"spaCy pipeline '{nlp.meta.get('lang', '?')}_{nlp.meta['name']}' has no 'parser' or 'senter'; "
             "cannot split sentences via doc.sents")
 
+    # Transformer pipelines hold activations for the whole batch; large batches
+    # of long passages get the process OOM-killed on small machines.
+    is_trf = nlp.has_pipe("transformer") or nlp.has_pipe("curated_transformer")
+    batch_size = 4 if is_trf else 32
+
     def analyze(texts: list[str]) -> list[list[tuple[str, list[str]]]]:
         return [
             [(sent.text.strip(), [ent.text for ent in sent.ents])
              for sent in doc.sents if sent.text.strip()]
-            for doc in nlp.pipe(texts, batch_size=32)
+            for doc in nlp.pipe(texts, batch_size=batch_size)
         ]
     return analyze
 

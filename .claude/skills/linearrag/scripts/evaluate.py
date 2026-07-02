@@ -36,6 +36,7 @@ def main() -> None:
     parser.add_argument("--lam", type=float, default=1.5)
     parser.add_argument("--w-p", type=float, default=0.05)
     parser.add_argument("--damping", type=float, default=0.5)
+    parser.add_argument("--sigma-top-n", type=int, default=200)
     parser.add_argument("--limit", type=int, default=0, help="evaluate first N questions only")
     args = parser.parse_args()
 
@@ -51,7 +52,8 @@ def main() -> None:
     t0 = time.time()
     for q in questions:
         result = retriever(q["question"], top_k=args.top_k, delta=args.delta,
-                           lam=args.lam, w_p=args.w_p, damping=args.damping)
+                           lam=args.lam, w_p=args.w_p, damping=args.damping,
+                           sigma_top_n=args.sigma_top_n)
         joined = " ".join(p["text"] for p in result["passages"]).casefold()
         contained = q["answer"].casefold() in joined
         contain_hits += contained

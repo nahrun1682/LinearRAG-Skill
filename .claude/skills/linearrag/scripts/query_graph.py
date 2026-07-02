@@ -160,6 +160,26 @@ def _ppr_iterate(W: sparse.csr_matrix, n_p: int, passage_seeds: np.ndarray,
     return x[:n_p].astype(np.float32), x[n_p:].astype(np.float32)
 
 
+# NER labels that name quantities rather than things; as query anchors they
+# match hub entities ("first", "two") whose huge degree drowns the real signal.
+_NUMERIC_NER_LABELS = {"CARDINAL", "ORDINAL", "QUANTITY", "PERCENT",
+                       "MONEY", "TIME", "DATE"}
+
+
+def _sparsify_top_n(values: np.ndarray, top_n: int) -> np.ndarray:
+    """Zero out all but the top_n largest entries.
+
+    Dense query-sentence similarities make eq.5 sum mass from every sentence
+    in the corpus, which lets high-degree entities blow up exponentially.
+    Keeping only the most relevant sentences bounds propagation to the local
+    semantic bridge the paper's case study describes.
+    """
+    if top_n <= 0 or top_n >= values.shape[0]:
+        return values
+    threshold = np.partition(values, -top_n)[-top_n]
+    return np.where(values >= threshold, values, 0.0).astype(values.dtype)
+
+
 class Retriever:
     """Two-stage LinearRAG retrieval over a loaded TriGraphIndex.
 
@@ -178,17 +198,19 @@ class Retriever:
 
     def __call__(self, query: str, top_k: int = 5, delta: float = 0.5,
                  max_iterations: int = 4, lam: float = 1.5, w_p: float = 0.05,
-                 damping: float = 0.5) -> dict:
+                 damping: float = 0.5, sigma_top_n: int = 200) -> dict:
         index = self.index
         query_vec = self.embed([query])[0]
 
         # --- Stage 1: entity activation (eq.3-5) ---
-        q_entities = [normalize_entity(ent.text) for ent in self.nlp(query).ents]
+        q_entities = [normalize_entity(ent.text) for ent in self.nlp(query).ents
+                      if ent.label_ not in _NUMERIC_NER_LABELS]
         q_entities = [e for e in q_entities if e]
         q_vecs = (self.embed(q_entities) if q_entities
                   else np.zeros((0, 1), dtype=np.float32))
         a0 = initial_activation(q_vecs, index.emb_entities)
-        sigma = index.emb_sentences @ query_vec
+        sigma = _sparsify_top_n(
+            np.asarray(index.emb_sentences @ query_vec), sigma_top_n)
         activation, levels, trace = activate_entities(
             a0, index.M, sigma, delta=delta, max_iterations=max_iterations)
 
@@ -216,7 +238,8 @@ class Retriever:
                  "text": index.passages[i]["text"]}
                 for r, i in enumerate(order)],
             "params": {"top_k": top_k, "delta": delta, "lam": lam, "w_p": w_p,
-                       "damping": damping, "max_iterations": max_iterations},
+                       "damping": damping, "max_iterations": max_iterations,
+                       "sigma_top_n": sigma_top_n},
         }
 
 
@@ -230,6 +253,7 @@ def main() -> None:
     parser.add_argument("--lam", type=float, default=1.5)
     parser.add_argument("--w-p", type=float, default=0.05)
     parser.add_argument("--damping", type=float, default=0.5)
+    parser.add_argument("--sigma-top-n", type=int, default=200)
     args = parser.parse_args()
 
     from common import Embedder, TriGraphIndex, load_nlp
@@ -239,7 +263,8 @@ def main() -> None:
                           load_nlp(index.meta["spacy_model"]))
     result = retriever(args.query, top_k=args.top_k, delta=args.delta,
                        max_iterations=args.max_iterations, lam=args.lam,
-                       w_p=args.w_p, damping=args.damping)
+                       w_p=args.w_p, damping=args.damping,
+                       sigma_top_n=args.sigma_top_n)
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 

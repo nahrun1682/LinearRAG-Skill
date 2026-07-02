@@ -33,8 +33,9 @@ def fake_embed(texts: list[str]) -> np.ndarray:
 
 
 class _FakeEnt:
-    def __init__(self, text: str):
+    def __init__(self, text: str, label: str = "PERSON"):
         self.text = text
+        self.label_ = label
 
 
 class _FakeDoc:
@@ -147,3 +148,24 @@ def test_retriever_binarizes_counts_without_mutating_index():
     Retriever(index, fake_embed, make_fake_nlp({}))
     # Construction must not mutate the caller's C matrix.
     assert (index.C != original).nnz == 0
+
+
+def test_retriever_filters_numeric_query_entities():
+    # ORDINAL/CARDINAL query entities ("first", "two") match hub nodes whose
+    # degree drowns the real signal; they must not become seeds.
+    def nlp(query):
+        return _FakeDoc([_FakeEnt("first", "ORDINAL"), _FakeEnt("alpha", "PERSON")])
+    retriever = Retriever(_index(), fake_embed, nlp)
+    result = retriever("who is alpha, first of her name", top_k=1)
+    assert result["query_entities"] == ["alpha"]
+
+
+def test_sigma_sparsification_keeps_only_top_n():
+    from query_graph import _sparsify_top_n
+    v = np.array([0.1, 0.9, 0.5, 0.3], dtype=np.float32)
+    out = _sparsify_top_n(v, 2)
+    assert (out > 0).sum() == 2
+    assert out[1] == np.float32(0.9) and out[2] == np.float32(0.5)
+    # top_n >= len or <= 0 leaves the vector untouched
+    np.testing.assert_array_equal(_sparsify_top_n(v, 10), v)
+    np.testing.assert_array_equal(_sparsify_top_n(v, 0), v)

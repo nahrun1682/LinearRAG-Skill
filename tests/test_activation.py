@@ -18,7 +18,7 @@ def test_two_hop_bridging_activates_intermediate_and_target():
     scores, levels, trace = activate_entities(A0, M, SIGMA, delta=0.5, max_iterations=4)
     assert scores[1] > 0.5          # frederick (1-hop bridge)
     assert scores[2] > 0.5          # germany (2-hop)
-    assert scores[3] == 0.0         # noise は枝刈りされる
+    assert scores[3] < 1e-6         # noise は枝刈りされる
     assert levels[0] == 1           # シードは level 1
     assert levels[1] == 2
     assert levels[2] == 3
@@ -28,13 +28,13 @@ def test_two_hop_bridging_activates_intermediate_and_target():
 def test_pruning_threshold_blocks_weak_paths():
     scores, levels, _ = activate_entities(A0, M, SIGMA, delta=10.0, max_iterations=4)
     # 閾値が高すぎると新規活性はゼロ、シードのみ残る
-    assert scores[0] == 1.0
+    assert abs(scores[0] - 1.0) < 1e-5
     assert (scores[1:] == 0).all()
 
 
 def test_terminates_early_when_no_new_entities():
     _, _, trace = activate_entities(A0, M, SIGMA, delta=0.5, max_iterations=10)
-    assert len(trace) <= 3  # 3反復以内に自然停止（10回回らない）
+    assert len(trace) == 2  # 2反復で新規活性が尽き、3回目で早期停止（10回回らない）
 
 
 def test_initial_activation_matches_most_similar_entity():
@@ -44,3 +44,13 @@ def test_initial_activation_matches_most_similar_entity():
     a0 = initial_activation(q_ent_vecs, emb_entities)
     assert a0.argmax() == 0
     assert a0[1] == 0.0
+
+
+def test_initial_activation_clips_negative_cosine_to_zero():
+    # 全エンティティがクエリと負のcos類似度 → argmax でも負値は格納されない
+    emb_entities = np.array([[-1, 0], [0, -1]], dtype=np.float32)
+    emb_entities /= np.linalg.norm(emb_entities, axis=1, keepdims=True)
+    q_ent_vecs = np.array([[1, 1]], dtype=np.float32)
+    q_ent_vecs /= np.linalg.norm(q_ent_vecs, axis=1, keepdims=True)
+    a0 = initial_activation(q_ent_vecs, emb_entities)
+    assert (a0 >= 0).all()

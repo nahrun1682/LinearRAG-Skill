@@ -24,7 +24,10 @@ from scipy import sparse
 
 def initial_activation(query_entity_vecs: np.ndarray,
                        emb_entities: np.ndarray) -> np.ndarray:
-    """Paper eq.3: each query entity activates its most similar graph entity."""
+    """Paper eq.3: each query entity activates its most similar graph entity.
+
+    Both matrices must be L2-normalized (cosine similarity = dot product).
+    """
     a0 = np.zeros(emb_entities.shape[0], dtype=np.float32)
     if query_entity_vecs.size == 0 or emb_entities.size == 0:
         return a0
@@ -32,11 +35,14 @@ def initial_activation(query_entity_vecs: np.ndarray,
     for j in range(sims.shape[1]):
         i = int(np.argmax(sims[:, j]))
         a0[i] = max(a0[i], float(sims[i, j]))
+    np.clip(a0, 0.0, None, out=a0)
     return a0
 
 
-def activate_entities(a0: np.ndarray, M: sparse.csr_matrix, sigma: np.ndarray,
-                      delta: float = 0.5, max_iterations: int = 4):
+def activate_entities(
+        a0: np.ndarray, M: sparse.csr_matrix, sigma: np.ndarray,
+        delta: float = 0.5, max_iterations: int = 4,
+) -> tuple[np.ndarray, np.ndarray, list[list[int]]]:
     """Paper eq.5 with dynamic pruning.
 
     a_t = MAX(M^T (sigma ⊙ (M a_{t-1})), a_{t-1})
@@ -47,6 +53,8 @@ def activate_entities(a0: np.ndarray, M: sparse.csr_matrix, sigma: np.ndarray,
     Returns (scores, levels, trace): levels[i] is the 1-based iteration at
     which entity i first activated (0 = inactive; seeds are level 1) — used
     as L_ei in eq.7. trace lists newly activated entity indices per iteration.
+    Score magnitudes are unbounded; downstream consumers absorb this via
+    log1p / sum normalization.
     """
     a = a0.astype(np.float32).copy()
     levels = np.where(a > 0, 1, 0).astype(np.int32)

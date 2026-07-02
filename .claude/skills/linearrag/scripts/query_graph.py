@@ -98,3 +98,38 @@ def passage_seed_scores(sim_qp: np.ndarray, C: sparse.csr_matrix,
                           where=levels > 0)
     bonus = np.asarray(C_log @ inv_level).ravel()
     return ((lam * dpr + np.log1p(bonus)) * w_p).astype(np.float32)
+
+
+def personalized_pagerank(B: sparse.csr_matrix, passage_seeds: np.ndarray,
+                          entity_seeds: np.ndarray, damping: float = 0.5,
+                          max_iter: int = 100, tol: float = 1e-9):
+    """Paper eq.6: PPR over the passage-entity bipartite graph via power
+    iteration. B is the binarized |P| x |E| biadjacency matrix. The reset
+    distribution is the normalized concatenation of the two seed vectors.
+
+    Isolated nodes (deg=0) are set to deg=1 with an empty transition column
+    (sink); no dangling correction is applied — the (1-d) reset term keeps the
+    distribution well-behaved, though x.sum() may fall marginally below 1 when
+    B contains isolated nodes. damping default 0.5 per the reference config.
+
+    Returns (passage_scores, entity_scores).
+    """
+    n_p, n_e = B.shape
+    n = n_p + n_e
+    A = sparse.bmat([[None, B], [B.T, None]], format="csr")
+    deg = np.asarray(A.sum(axis=1)).ravel()
+    deg[deg == 0] = 1.0
+    W = (sparse.diags(1.0 / deg) @ A).T.tocsr()   # column-stochastic transition
+
+    seeds = np.concatenate([passage_seeds, entity_seeds]).astype(np.float64)
+    seeds = np.clip(seeds, 0.0, None)
+    reset = seeds / seeds.sum() if seeds.sum() > 0 else np.full(n, 1.0 / n)
+
+    x = reset.copy()
+    for _ in range(max_iter):
+        x_next = (1.0 - damping) * reset + damping * (W @ x)
+        if np.abs(x_next - x).sum() < tol:
+            x = x_next
+            break
+        x = x_next
+    return x[:n_p].astype(np.float32), x[n_p:].astype(np.float32)

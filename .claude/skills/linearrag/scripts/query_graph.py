@@ -7,6 +7,7 @@
 #     "sentence-transformers>=3.0",
 #     "en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
 #     "ja-core-news-sm @ https://github.com/explosion/spacy-models/releases/download/ja_core_news_sm-3.8.0/ja_core_news_sm-3.8.0-py3-none-any.whl",
+#     "en-core-web-trf @ https://github.com/explosion/spacy-models/releases/download/en_core_web_trf-3.8.0/en_core_web_trf-3.8.0-py3-none-any.whl",
 # ]
 # ///
 # NOTE: standalone script; wider Python range than the project on purpose
@@ -235,7 +236,7 @@ def main() -> None:
 
     index = TriGraphIndex.load(args.index)
     retriever = Retriever(index, Embedder(index.meta["embedding_model"]),
-                          load_nlp(index.meta["language"]))
+                          load_nlp(index.meta["spacy_model"]))
     result = retriever(args.query, top_k=args.top_k, delta=args.delta,
                        max_iterations=args.max_iterations, lam=args.lam,
                        w_p=args.w_p, damping=args.damping)

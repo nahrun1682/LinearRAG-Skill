@@ -63,10 +63,15 @@ class Embedder:
         return np.asarray(vecs, dtype=np.float32)
 
 
-def load_nlp(lang: str):
-    """Load the spaCy pipeline for sentence splitting and NER."""
+def load_nlp(model: str):
+    """Load the spaCy pipeline (by model name) for sentence splitting and NER.
+
+    Query-side callers should pass ``index.meta["spacy_model"]`` so queries
+    are analyzed with the same pipeline the index was built with.
+    """
     import spacy
-    return spacy.load(SPACY_MODELS[lang])
+    spacy.prefer_gpu()  # no-op when no GPU stack is available
+    return spacy.load(model)
 
 
 def make_analyzer(nlp):

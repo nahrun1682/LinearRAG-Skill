@@ -7,6 +7,7 @@
 #     "sentence-transformers>=3.0",
 #     "en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
 #     "ja-core-news-sm @ https://github.com/explosion/spacy-models/releases/download/ja_core_news_sm-3.8.0/ja_core_news_sm-3.8.0-py3-none-any.whl",
+#     "en-core-web-trf @ https://github.com/explosion/spacy-models/releases/download/en_core_web_trf-3.8.0/en_core_web_trf-3.8.0-py3-none-any.whl",
 # ]
 # ///
 # NOTE: standalone script; wider Python range than the project on purpose
@@ -152,6 +153,9 @@ def main() -> None:
     parser.add_argument("--output", required=True, help="index output directory")
     parser.add_argument("--lang", choices=["auto", "en", "ja"], default="auto")
     parser.add_argument("--model", default=None, help="sentence-transformers model name")
+    parser.add_argument("--spacy-model", default=None,
+                        help="spaCy pipeline override (e.g. en_core_web_trf for "
+                             "lowercased corpora where the small model misses entities)")
     parser.add_argument("--max-chars", type=int, default=1000)
     args = parser.parse_args()
 
@@ -165,13 +169,14 @@ def main() -> None:
     lang = args.lang if args.lang != "auto" else detect_language(
         [p["text"] for p in passages[:50]])
     model_name = args.model or DEFAULT_EMBEDDING_MODEL
-    print(f"passages={len(passages)} lang={lang} model={model_name}")
+    spacy_model = args.spacy_model or SPACY_MODELS[lang]
+    print(f"passages={len(passages)} lang={lang} model={model_name} spacy={spacy_model}")
 
-    nlp = load_nlp(lang)
+    nlp = load_nlp(spacy_model)
     embed = Embedder(model_name)
 
     meta = {"language": lang, "embedding_model": model_name,
-            "spacy_model": SPACY_MODELS[lang], "num_passages": len(passages)}
+            "spacy_model": spacy_model, "num_passages": len(passages)}
     index = assemble_tri_graph(passages, make_analyzer(nlp), embed, meta)
     index.save(args.output)
 

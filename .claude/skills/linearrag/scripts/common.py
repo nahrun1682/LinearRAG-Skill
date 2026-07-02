@@ -107,6 +107,11 @@ def load_nlp(model: str, gpu: bool = False):
         spacy.require_gpu()  # raises with a clear message if cupy/GPU missing
     else:
         spacy.prefer_gpu()   # no-op when no GPU stack is available
+    if model.startswith("ja_ginza"):
+        # GiNZA ships split_mode=None in its config, which newer spaCy config
+        # validation rejects; pin the packaged default ("C") explicitly.
+        return spacy.load(model, config={
+            "components": {"compound_splitter": {"split_mode": "C"}}})
     return spacy.load(model)
 
 

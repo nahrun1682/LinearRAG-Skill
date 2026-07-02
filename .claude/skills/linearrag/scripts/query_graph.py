@@ -162,8 +162,22 @@ def _ppr_iterate(W: sparse.csr_matrix, n_p: int, passage_seeds: np.ndarray,
 
 # NER labels that name quantities rather than things; as query anchors they
 # match hub entities ("first", "two") whose huge degree drowns the real signal.
+# The second set covers GiNZA's ENE labels. ENE "Date"/"Time" are deliberately
+# NOT filtered: GiNZA tags Japanese topic words like 梅雨 as Date, and dropping
+# them would erase the query's main anchor.
 _NUMERIC_NER_LABELS = {"CARDINAL", "ORDINAL", "QUANTITY", "PERCENT",
                        "MONEY", "TIME", "DATE"}
+_ENE_NUMERIC_LABELS = {"Age", "Ordinal_Number", "Frequency", "Percent",
+                       "Money", "Multiplication", "Rank", "Point",
+                       "Measurement", "Physical_Extent", "Space", "Volume",
+                       "Weight", "Speed", "Intensity", "Temperature",
+                       "Calorie", "Seismic_Intensity", "Seismic_Magnitude",
+                       "School_Age"}
+
+
+def _is_numeric_label(label: str) -> bool:
+    return (label in _NUMERIC_NER_LABELS or label in _ENE_NUMERIC_LABELS
+            or label.startswith("N_") or label.startswith("Period"))
 
 
 def _sparsify_top_n(values: np.ndarray, top_n: int) -> np.ndarray:
@@ -208,7 +222,7 @@ class Retriever:
 
         # --- Stage 1: entity activation (eq.3-5) ---
         q_entities = [normalize_entity(ent.text) for ent in self.nlp(query).ents
-                      if ent.label_ not in _NUMERIC_NER_LABELS]
+                      if not _is_numeric_label(ent.label_)]
         q_entities = [e for e in q_entities if e]
         q_vecs = (self.embed(q_entities) if q_entities
                   else np.zeros((0, 1), dtype=np.float32))

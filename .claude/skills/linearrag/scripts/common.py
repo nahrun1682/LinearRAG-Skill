@@ -159,7 +159,13 @@ class TriGraphIndex:
                 shutil.rmtree(tmp)
 
     @classmethod
-    def load(cls, in_dir: str | Path) -> "TriGraphIndex":
+    def load(cls, in_dir: str | Path, mmap: bool = True) -> "TriGraphIndex":
+        """Load an index directory.
+
+        With ``mmap=True`` (default) the embedding matrices are memory-mapped
+        read-only, so a query process pages in only what it touches instead of
+        materializing build-sized arrays in RAM.
+        """
         d = Path(in_dir)
         if not (d / "meta.json").exists():
             raise FileNotFoundError(f"index not found: {d}")
@@ -174,15 +180,16 @@ class TriGraphIndex:
         with open(d / "sentences.jsonl", encoding="utf-8") as f:
             sentences = [json.loads(line) for line in f if line.strip()]
         entities = json.loads((d / "entities.json").read_text(encoding="utf-8"))
+        mmap_mode = "r" if mmap else None
         index = cls(
             passages=passages,
             sentences=sentences,
             entities=entities,
             C=sparse.load_npz(d / "C.npz").tocsr(),
             M=sparse.load_npz(d / "M.npz").tocsr(),
-            emb_passages=np.load(d / "emb_passages.npy"),
-            emb_sentences=np.load(d / "emb_sentences.npy"),
-            emb_entities=np.load(d / "emb_entities.npy"),
+            emb_passages=np.load(d / "emb_passages.npy", mmap_mode=mmap_mode),
+            emb_sentences=np.load(d / "emb_sentences.npy", mmap_mode=mmap_mode),
+            emb_entities=np.load(d / "emb_entities.npy", mmap_mode=mmap_mode),
             meta=meta,
         )
         index._validate(d)

@@ -77,11 +77,17 @@ const DATA = {
 
 const FONT = { face: '-apple-system, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif', size: 13, color: '#0b0b0b' };
 const OPTS = {
-  physics: { barnesHut: { gravitationalConstant: -3500, springLength: 120, avoidOverlap: 0.2 },
-             stabilization: { iterations: 250 } },
+  physics: { barnesHut: { gravitationalConstant: -3500, springLength: 120,
+                          avoidOverlap: 0.2, damping: 0.35 },
+             minVelocity: 0.9,
+             stabilization: { iterations: 400 } },
   interaction: { hover: true, tooltipDelay: 120 },
   edges: { color: { color: '#c3c2b7', hover: '#888780' }, smooth: { type: 'continuous' } }
 };
+function freeze(net) {
+  net.once('stabilizationIterationsDone', () => net.setOptions({ physics: false }));
+  setTimeout(() => net.setOptions({ physics: false }), 5000);
+}
 
 const nodesA = [], edgesA = [];
 DATA.a.passages.forEach(p => nodesA.push({
@@ -100,7 +106,7 @@ DATA.a.edges_pe.forEach(([p, e, c]) => edgesA.push({
   title: '出現回数: ' + c }));
 DATA.a.edges_se.forEach(([s, e]) => edgesA.push({
   from: 's' + s, to: 'e' + e, dashes: [4, 4], width: 1 }));
-new vis.Network(document.getElementById('netA'), { nodes: nodesA, edges: edgesA }, OPTS);
+freeze(new vis.Network(document.getElementById('netA'), { nodes: nodesA, edges: edgesA }, OPTS));
 
 const LV = { 1: { bg: '#F0997B', bd: '#993C1D', size: 16 },
              2: { bg: '#9FE1CB', bd: '#0F6E56', size: 12 },
@@ -126,7 +132,7 @@ DATA.b.passages.forEach(p => nodesB.push({
 DATA.b.edges.forEach(([e, p]) => {
   if (shown.has(e)) edgesB.push({ from: 'E:' + e, to: 'P:' + p, width: 1 });
 });
-new vis.Network(document.getElementById('netB'), { nodes: nodesB, edges: edgesB }, OPTS);
+freeze(new vis.Network(document.getElementById('netB'), { nodes: nodesB, edges: edgesB }, OPTS));
 </script>
 </body>
 </html>

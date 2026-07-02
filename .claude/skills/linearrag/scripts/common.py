@@ -90,13 +90,13 @@ class TriGraphIndex:
             # so it can be restored if the final rename fails; os.replace
             # onto a non-empty directory is not portable across platforms.
             old_backup = out.parent / f".bak-{out.name}.{os.getpid()}"
-            if old_backup.exists():
-                shutil.rmtree(old_backup)
+            for stale in out.parent.glob(f".bak-{out.name}.*"):
+                shutil.rmtree(stale)
             if out.exists():
                 os.replace(out, old_backup)
             try:
                 os.replace(tmp, out)
-            except Exception:
+            except BaseException:
                 if old_backup.exists():
                     os.replace(old_backup, out)  # restore the old index
                 raise

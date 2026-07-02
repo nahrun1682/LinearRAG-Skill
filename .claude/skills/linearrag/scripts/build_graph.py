@@ -157,6 +157,9 @@ def main() -> None:
                         help="spaCy pipeline override (e.g. en_core_web_trf for "
                              "lowercased corpora where the small model misses entities)")
     parser.add_argument("--max-chars", type=int, default=1000)
+    parser.add_argument("--gpu", action="store_true",
+                        help="run spaCy NER on the GPU (requires cupy; "
+                             "invoke via: uv run --with cupy-cuda12x ...)")
     args = parser.parse_args()
 
     from common import Embedder, load_nlp, make_analyzer
@@ -172,12 +175,13 @@ def main() -> None:
     spacy_model = args.spacy_model or SPACY_MODELS[lang]
     print(f"passages={len(passages)} lang={lang} model={model_name} spacy={spacy_model}")
 
-    nlp = load_nlp(spacy_model)
+    nlp = load_nlp(spacy_model, gpu=args.gpu)
     embed = Embedder(model_name)
 
     meta = {"language": lang, "embedding_model": model_name,
             "spacy_model": spacy_model, "num_passages": len(passages)}
-    index = assemble_tri_graph(passages, make_analyzer(nlp), embed, meta)
+    analyzer = make_analyzer(nlp, batch_size=32 if args.gpu else None)
+    index = assemble_tri_graph(passages, analyzer, embed, meta)
     index.save(args.output)
 
     print(f"sentences={len(index.sentences)} entities={len(index.entities)}")

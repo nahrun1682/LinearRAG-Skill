@@ -63,18 +63,54 @@ class Embedder:
         return np.asarray(vecs, dtype=np.float32)
 
 
-def load_nlp(model: str):
+def _preload_pip_cuda_libs() -> None:
+    """Make torch's bundled NVIDIA libraries visible to cupy.
+
+    cupy dlopens libcublas etc. by soname; the pip-installed copies under
+    site-packages/nvidia/*/lib are not on the loader path, so we load them
+    globally first. Two passes resolve inter-library dependencies.
+    """
+    import ctypes
+    import glob
+    import sys
+
+    # uv layers --with packages in an overlay venv, so scan every
+    # site-packages on sys.path, not just this interpreter's purelib.
+    lib_paths = sorted({
+        lib
+        for entry in sys.path if entry.endswith("site-packages")
+        for lib in glob.glob(os.path.join(entry, "nvidia", "*", "lib", "*.so*"))
+    })
+    for _ in range(2):
+        for lib in lib_paths:
+            try:
+                ctypes.CDLL(lib, mode=ctypes.RTLD_GLOBAL)
+            except OSError:
+                continue
+
+
+def load_nlp(model: str, gpu: bool = False):
     """Load the spaCy pipeline (by model name) for sentence splitting and NER.
 
     Query-side callers should pass ``index.meta["spacy_model"]`` so queries
     are analyzed with the same pipeline the index was built with.
+
+    ``gpu=True`` requires a working GPU stack (cupy); run the script with
+    ``uv run --with cupy-cuda12x`` to provide it. The default merely prefers
+    the GPU when one happens to be available.
     """
+    if gpu:
+        # Must run before importing spacy: thinc probes cupy at import time.
+        _preload_pip_cuda_libs()
     import spacy
-    spacy.prefer_gpu()  # no-op when no GPU stack is available
+    if gpu:
+        spacy.require_gpu()  # raises with a clear message if cupy/GPU missing
+    else:
+        spacy.prefer_gpu()   # no-op when no GPU stack is available
     return spacy.load(model)
 
 
-def make_analyzer(nlp):
+def make_analyzer(nlp, batch_size: int | None = None):
     """Return analyze(texts) -> per-text list of (sentence, [entity surface, ...]).
 
     Sentence segmentation and NER are driven by a single batched spaCy pass
@@ -86,10 +122,12 @@ def make_analyzer(nlp):
             f"spaCy pipeline '{nlp.meta.get('lang', '?')}_{nlp.meta['name']}' has no 'parser' or 'senter'; "
             "cannot split sentences via doc.sents")
 
-    # Transformer pipelines hold activations for the whole batch; large batches
-    # of long passages get the process OOM-killed on small machines.
-    is_trf = nlp.has_pipe("transformer") or nlp.has_pipe("curated_transformer")
-    batch_size = 4 if is_trf else 32
+    if batch_size is None:
+        # Transformer pipelines hold activations for the whole batch; large
+        # batches of long passages get the process OOM-killed on small
+        # machines. GPU callers may pass a larger batch_size explicitly.
+        is_trf = nlp.has_pipe("transformer") or nlp.has_pipe("curated_transformer")
+        batch_size = 4 if is_trf else 32
 
     def analyze(texts: list[str]) -> list[list[tuple[str, list[str]]]]:
         return [

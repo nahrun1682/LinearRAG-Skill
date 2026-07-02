@@ -26,6 +26,9 @@ uv run .claude/skills/linearrag/scripts/build_graph.py \
 - 初回はモデルダウンロード（埋め込み約1GB + spaCy）が走るため時間がかかると人間に伝えること
 - **コーパスが小文字化済みの英語テキストの場合は `--spacy-model en_core_web_trf` を必ず指定**
   （デフォルトの en_core_web_sm は大文字手がかりに依存し、固有名詞をほぼ取りこぼす）
+- **NVIDIA GPUがあるなら trf 使用時は `--gpu` を付け、`uv run --with "cupy-cuda12x<14"` で起動**:
+  `uv run --with "cupy-cuda12x<14" .../build_graph.py ... --spacy-model en_core_web_trf --gpu`
+  （実測: 658パッセージのtrf索引構築が 937.6s → 123.6s、7.6倍高速。索引内容は同一）
 - 完了したら表示された統計（passages / sentences / entities / edges / 所要時間）を報告する
 
 ## ワークフロー2: 質問応答

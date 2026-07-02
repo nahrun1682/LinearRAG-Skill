@@ -14,7 +14,13 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from pathlib import Path
+
+import numpy as np
+from scipy import sparse
+
+from common import TriGraphIndex, normalize_entity
 
 
 def _split_paragraphs(text: str, max_chars: int) -> list[str]:
@@ -73,3 +79,53 @@ def load_corpus(path: str | Path, max_chars: int = 1000) -> list[dict]:
                 f"chunks.json item {i}: missing ':' separator in {item!r}")
         passages.append({"id": pid, "title": "", "text": text})
     return passages
+
+
+def assemble_tri_graph(passages, split_sentences, extract_entities, embed,
+                       meta: dict | None = None) -> TriGraphIndex:
+    """Build the Tri-Graph (paper §3.1): sentence/entity nodes plus the
+    contain matrix C (counts) and mention matrix M (binary)."""
+    sentences: list[dict] = []
+    entity_ids: dict[str, int] = {}
+    m_rows, m_cols = [], []
+    c_rows, c_cols, c_vals = [], [], []
+
+    for p_idx, passage in enumerate(passages):
+        occurrence = Counter()
+        for sent in split_sentences(passage["text"]):
+            s_idx = len(sentences)
+            sentences.append({"text": sent, "passage": p_idx})
+            seen_in_sentence = set()
+            for surface in extract_entities(sent):
+                name = normalize_entity(surface)
+                if not name:
+                    continue
+                e_idx = entity_ids.setdefault(name, len(entity_ids))
+                occurrence[e_idx] += 1
+                if e_idx not in seen_in_sentence:
+                    seen_in_sentence.add(e_idx)
+                    m_rows.append(s_idx)
+                    m_cols.append(e_idx)
+        for e_idx, count in occurrence.items():
+            c_rows.append(p_idx)
+            c_cols.append(e_idx)
+            c_vals.append(count)
+
+    entities = list(entity_ids)
+    n_p, n_s, n_e = len(passages), len(sentences), len(entities)
+    M = sparse.csr_matrix(
+        (np.ones(len(m_rows), dtype=np.float32), (m_rows, m_cols)), shape=(n_s, n_e))
+    C = sparse.csr_matrix(
+        (np.asarray(c_vals, dtype=np.float32), (c_rows, c_cols)), shape=(n_p, n_e))
+
+    return TriGraphIndex(
+        passages=passages,
+        sentences=sentences,
+        entities=entities,
+        C=C,
+        M=M,
+        emb_passages=embed([p["text"] for p in passages]),
+        emb_sentences=embed([s["text"] for s in sentences]),
+        emb_entities=embed(entities) if entities else np.zeros((0, 1), dtype=np.float32),
+        meta=meta or {},
+    )

@@ -1,3 +1,5 @@
+import json
+
 import numpy as np
 import pytest
 from scipy import sparse
@@ -38,3 +40,63 @@ def test_save_load_roundtrip(tmp_path):
 def test_load_missing_dir_raises(tmp_path):
     with pytest.raises(FileNotFoundError):
         TriGraphIndex.load(tmp_path / "nope")
+
+
+def test_dtype_preserved_on_roundtrip(tmp_path):
+    index = _tiny_index()
+    index.save(tmp_path / "idx")
+    loaded = TriGraphIndex.load(tmp_path / "idx")
+
+    assert loaded.C.dtype == index.C.dtype
+    assert loaded.M.dtype == index.M.dtype
+    assert loaded.emb_entities.dtype == np.float32
+    assert loaded.emb_passages.dtype == np.float32
+    assert loaded.emb_sentences.dtype == np.float32
+
+
+def test_resave_over_existing_index_is_readable(tmp_path):
+    out = tmp_path / "idx"
+    _tiny_index().save(out)
+    # Rebuild in place: a second save must leave a fully-readable index.
+    _tiny_index().save(out)
+    loaded = TriGraphIndex.load(out)
+    assert loaded.entities == ["alpha", "beta", "gamma"]
+
+
+def test_save_leaves_no_temp_dir(tmp_path):
+    out = tmp_path / "idx"
+    _tiny_index().save(out)
+    # Only the index dir should remain; no leftover temp dirs beside it.
+    siblings = [p.name for p in tmp_path.iterdir()]
+    assert siblings == ["idx"]
+    # And nothing temp-looking inside the index dir.
+    assert all(not n.startswith(".tmp") for n in (p.name for p in out.iterdir()))
+
+
+def test_save_injects_index_format(tmp_path):
+    out = tmp_path / "idx"
+    _tiny_index().save(out)
+    meta = json.loads((out / "meta.json").read_text(encoding="utf-8"))
+    assert meta["index_format"] == 1
+
+
+def test_load_rejects_unknown_index_format(tmp_path):
+    out = tmp_path / "idx"
+    _tiny_index().save(out)
+    meta = json.loads((out / "meta.json").read_text(encoding="utf-8"))
+    meta["index_format"] = 999
+    (out / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
+    with pytest.raises(ValueError):
+        TriGraphIndex.load(out)
+
+
+def test_load_rejects_shape_mismatch(tmp_path):
+    out = tmp_path / "idx"
+    _tiny_index().save(out)
+    # Tamper: add an entity so entities count no longer matches C/M columns.
+    entities = json.loads((out / "entities.json").read_text(encoding="utf-8"))
+    entities.append("delta")
+    (out / "entities.json").write_text(
+        json.dumps(entities, ensure_ascii=False), encoding="utf-8")
+    with pytest.raises(ValueError, match="entities"):
+        TriGraphIndex.load(out)

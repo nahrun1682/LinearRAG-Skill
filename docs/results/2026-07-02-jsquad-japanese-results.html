@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LinearRAG 日本語検証結果（JSQuAD）</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #898781;
+    --surface-1: #f6f5f2; --border: rgba(11,11,11,0.10); --grid: #e1e0d9;
+  }
+  body { font-family: -apple-system, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+         color: var(--text-primary); max-width: 760px; margin: 2rem auto; padding: 0 1.25rem;
+         line-height: 1.7; background: #fff; }
+  h1 { font-size: 22px; font-weight: 500; }
+  h2 { font-size: 15px; font-weight: 500; margin: 2rem 0 4px; }
+  .meta { font-size: 13px; color: var(--text-muted); margin-bottom: 1.5rem; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .kpi { background: var(--surface-1); border-radius: 8px; padding: 1rem; }
+  .kpi .label { font-size: 13px; color: var(--text-muted); }
+  .kpi .value { font-size: 24px; font-weight: 500; }
+  .kpi .value small { font-size: 14px; color: var(--text-secondary); font-weight: 400; }
+  .kpi .sub { font-size: 12px; color: var(--text-secondary); }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 8px; font-size: 12px; color: var(--text-secondary); }
+  .legend span { display: flex; align-items: center; gap: 4px; }
+  .sw { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+  .chart { position: relative; width: 100%; margin-bottom: 1rem; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; align-items: center; }
+  .chips .cap { font-size: 12px; color: var(--text-secondary); margin-right: 4px; }
+  .chip-good { background: #E1F5EE; color: #085041; font-size: 12px; padding: 3px 10px; border-radius: 10px; }
+  .chip-bad  { background: #FAECE7; color: #712B13; font-size: 12px; padding: 3px 10px; border-radius: 10px; }
+  .note { font-size: 13px; color: var(--text-secondary); border-left: 3px solid var(--grid); padding-left: 12px; }
+  footer { font-size: 12px; color: var(--text-muted); margin: 2.5rem 0 1rem; }
+</style>
+</head>
+<body>
+
+<h1>LinearRAG 日本語検証結果（JSQuAD）</h1>
+<p class="meta">2026-07-02 ・ JSQuAD valid（JGLUE）1,145パッセージ / 1,000問評価 ・ 埋め込み: paraphrase-multilingual-mpnet-base-v2 ・ 指標: Retrieval-Contain@5（正解文字列がtop-5パッセージに出現する率）</p>
+
+<div class="kpis">
+  <div class="kpi"><div class="label">索引構築 (sm)</div><div class="value">26.6<small> 秒</small></div><div class="sub">1,145パッセージ</div></div>
+  <div class="kpi"><div class="label">Contain@5</div><div class="value">74.3<small>%</small></div><div class="sub">1,000問評価</div></div>
+  <div class="kpi"><div class="label">正解パッセージHit@5</div><div class="value">65.7<small>%</small></div><div class="sub">厳密指標</div></div>
+  <div class="kpi"><div class="label">検索速度</div><div class="value">0.027<small> 秒/問</small></div><div class="sub">CPUのみ</div></div>
+</div>
+
+<h2>JSQuAD（単一ホップ・日本語）Contain@5</h2>
+<div class="legend">
+  <span><span class="sw" style="background:#898781"></span>素のdense検索</span>
+  <span><span class="sw" style="background:#2a78d6"></span>LinearRAG</span>
+</div>
+<div class="chart" style="height: 200px;">
+  <canvas id="jsq" role="img" aria-label="JSQuADのContain@5比較。素のdense検索81.2%、LinearRAG(sm)74.3%、LinearRAG(trf)68.4%"></canvas>
+</div>
+<p class="note">単一ホップでは質問と正解段落が語彙的に近く、素のdense検索がほぼ最適。グラフ機構が本格稼働するほど（sm→trf）スコアが下がる。</p>
+
+<h2>グラフ検索の効果はタスク型で反転する（Contain@5）</h2>
+<div class="legend">
+  <span><span class="sw" style="background:#2a78d6"></span>LinearRAG</span>
+  <span><span class="sw" style="background:#898781"></span>素のdense検索</span>
+</div>
+<div class="chart" style="height: 260px;">
+  <canvas id="mh" role="img" aria-label="4データセット比較。multi-hopではLinearRAGが大幅に上回り、単一ホップのJSQuADのみ素の検索が上回る"></canvas>
+</div>
+<p class="note">multi-hop（2Wiki / HotpotQA / MuSiQue）ではエンティティ活性化の橋渡しで素の検索を2〜3倍上回る。単一ホップのJSQuADのみ順位が逆転する。</p>
+
+<h2>エンティティ密度（1パッセージあたりの抽出数）</h2>
+<div class="chart" style="height: 180px;">
+  <canvas id="dens" role="img" aria-label="エンティティ密度。英語trf35.7個、日本語sm3.7個、日本語trf4.1個"></canvas>
+</div>
+<p class="note">日本語spaCyモデルのNERは英語の約1/10と希薄。trf（Transformer版）にしても+10%しか増えず、モデルサイズでは解決しない（学習データのNEアノテーション自体が疎）。クエリ側でも200問中79問（40%）でエンティティ抽出ゼロ。</p>
+
+<h2>抽出されたエンティティの実例（jsquad索引・4,262件から）</h2>
+<div class="chips">
+  <span class="cap">良い抽出:</span>
+  <span class="chip-good">丹下健三</span><span class="chip-good">コンゴ川</span><span class="chip-good">アソーレス諸島</span><span class="chip-good">第一次世界大戦</span><span class="chip-good">ヴィエンチャン都</span>
+</div>
+<div class="chips">
+  <span class="cap">ノイズ:</span>
+  <span class="chip-bad">丹下健三)</span><span class="chip-bad">9年</span><span class="chip-bad">6つ</span><span class="chip-bad">/ s'/</span><span class="chip-bad">23.5万人</span>
+</div>
+
+<footer>LinearRAG-Skill — 論文 arXiv:2510.10114 のクリーンルーム実装による検証。英語側の詳細は .claude/skills/linearrag/SKILL.md を参照。</footer>
+
+<script>
+const muted = '#898781', grid = '#e1e0d9';
+const common = { responsive: true, maintainAspectRatio: false,
+                 plugins: { legend: { display: false } } };
+
+new Chart(document.getElementById('jsq'), {
+  type: 'bar',
+  data: { labels: ['素のdense検索 (cos類似のみ)', 'LinearRAG + ja_core_news_sm', 'LinearRAG + ja_core_news_trf'],
+          datasets: [{ data: [81.2, 74.3, 68.4],
+            backgroundColor: ['#898781', '#2a78d6', '#2a78d6'],
+            borderRadius: { topRight: 4, bottomRight: 4 }, maxBarThickness: 24 }] },
+  options: { ...common, indexAxis: 'y',
+    scales: { x: { min: 0, max: 100, ticks: { color: muted, callback: v => v + '%' }, grid: { color: grid } },
+              y: { ticks: { color: muted }, grid: { display: false } } } }
+});
+
+new Chart(document.getElementById('mh'), {
+  type: 'bar',
+  data: { labels: ['2Wiki (multi-hop)', 'HotpotQA (multi-hop)', 'MuSiQue (multi-hop)', 'JSQuAD (単一ホップ・日本語)'],
+          datasets: [
+            { label: 'LinearRAG', data: [72.9, 75.4, 51.2, 74.3], backgroundColor: '#2a78d6',
+              borderRadius: { topLeft: 4, topRight: 4 }, maxBarThickness: 24 },
+            { label: '素のdense検索', data: [23.9, 42.7, 29.7, 81.2], backgroundColor: '#898781',
+              borderRadius: { topLeft: 4, topRight: 4 }, maxBarThickness: 24 } ] },
+  options: { ...common,
+    scales: { y: { min: 0, max: 100, ticks: { color: muted, callback: v => v + '%' }, grid: { color: grid } },
+              x: { ticks: { color: muted, autoSkip: false }, grid: { display: false } } } }
+});
+
+new Chart(document.getElementById('dens'), {
+  type: 'bar',
+  data: { labels: ['英語 en_core_web_trf', '日本語 ja_core_news_sm', '日本語 ja_core_news_trf'],
+          datasets: [{ data: [35.7, 3.7, 4.1],
+            backgroundColor: ['#2a78d6', '#898781', '#898781'],
+            borderRadius: { topRight: 4, bottomRight: 4 }, maxBarThickness: 24 }] },
+  options: { ...common, indexAxis: 'y',
+    scales: { x: { min: 0, max: 40, ticks: { color: muted, callback: v => v + '個' }, grid: { color: grid } },
+              y: { ticks: { color: muted }, grid: { display: false } } } }
+});
+</script>
+</body>
+</html>

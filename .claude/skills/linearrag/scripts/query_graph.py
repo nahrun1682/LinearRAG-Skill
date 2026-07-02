@@ -18,8 +18,13 @@ the reference implementation.
 """
 from __future__ import annotations
 
+import argparse
+import json
+
 import numpy as np
 from scipy import sparse
+
+from common import normalize_entity
 
 
 def initial_activation(query_entity_vecs: np.ndarray,
@@ -115,13 +120,25 @@ def personalized_pagerank(B: sparse.csr_matrix, passage_seeds: np.ndarray,
 
     Returns (passage_scores, entity_scores).
     """
-    n_p, n_e = B.shape
-    n = n_p + n_e
+    W = _build_transition(B)
+    return _ppr_iterate(W, B.shape[0], passage_seeds, entity_seeds,
+                        damping=damping, max_iter=max_iter, tol=tol)
+
+
+def _build_transition(B: sparse.csr_matrix) -> sparse.csr_matrix:
+    """Column-stochastic transition matrix of the bipartite graph. Depends
+    only on B, so callers issuing many queries should build it once."""
     A = sparse.bmat([[None, B], [B.T, None]], format="csr")
     deg = np.asarray(A.sum(axis=1)).ravel()
     deg[deg == 0] = 1.0
-    W = (sparse.diags(1.0 / deg) @ A).T.tocsr()   # column-stochastic transition
+    return (sparse.diags(1.0 / deg) @ A).T.tocsr()
 
+
+def _ppr_iterate(W: sparse.csr_matrix, n_p: int, passage_seeds: np.ndarray,
+                 entity_seeds: np.ndarray, damping: float = 0.5,
+                 max_iter: int = 100, tol: float = 1e-9,
+                 ) -> tuple[np.ndarray, np.ndarray]:
+    n = W.shape[0]
     seeds = np.concatenate([passage_seeds, entity_seeds]).astype(np.float64)
     seeds = np.clip(seeds, 0.0, None)
     reset = seeds / seeds.sum() if seeds.sum() > 0 else np.full(n, 1.0 / n)
@@ -140,3 +157,90 @@ def personalized_pagerank(B: sparse.csr_matrix, passage_seeds: np.ndarray,
             f"(tol={tol}); consider increasing max_iter or reducing damping",
             stacklevel=2)
     return x[:n_p].astype(np.float32), x[n_p:].astype(np.float32)
+
+
+class Retriever:
+    """Two-stage LinearRAG retrieval over a loaded TriGraphIndex.
+
+    Query-independent work (binarizing C and building the PPR transition
+    matrix) happens once at construction; each call handles a single query.
+    """
+
+    def __init__(self, index, embed, nlp):
+        self.index = index
+        self.embed = embed
+        self.nlp = nlp
+        B = index.C.copy()
+        B.data = np.ones_like(B.data)
+        self._n_p = B.shape[0]
+        self._W = _build_transition(B)
+
+    def __call__(self, query: str, top_k: int = 5, delta: float = 0.5,
+                 max_iterations: int = 4, lam: float = 1.5, w_p: float = 0.05,
+                 damping: float = 0.5) -> dict:
+        index = self.index
+        query_vec = self.embed([query])[0]
+
+        # --- Stage 1: entity activation (eq.3-5) ---
+        q_entities = [normalize_entity(ent.text) for ent in self.nlp(query).ents]
+        q_entities = [e for e in q_entities if e]
+        q_vecs = (self.embed(q_entities) if q_entities
+                  else np.zeros((0, 1), dtype=np.float32))
+        a0 = initial_activation(q_vecs, index.emb_entities)
+        sigma = index.emb_sentences @ query_vec
+        activation, levels, trace = activate_entities(
+            a0, index.M, sigma, delta=delta, max_iterations=max_iterations)
+
+        # --- Stage 2: passage retrieval (eq.6-7) ---
+        sim_qp = index.emb_passages @ query_vec
+        p_seeds = passage_seed_scores(sim_qp, index.C, activation, levels,
+                                      lam=lam, w_p=w_p)
+        p_scores, _ = _ppr_iterate(self._W, self._n_p, p_seeds, activation,
+                                   damping=damping)
+
+        order = np.argsort(p_scores)[::-1][:top_k]
+        activated = [
+            {"entity": index.entities[i], "score": round(float(activation[i]), 4),
+             "level": int(levels[i])}
+            for i in np.flatnonzero(levels)]
+        activated.sort(key=lambda r: (r["level"], -r["score"]))
+        return {
+            "query": query,
+            "query_entities": q_entities,
+            "activated_entities": activated,
+            "passages": [
+                {"rank": r + 1, "id": index.passages[i]["id"],
+                 "title": index.passages[i]["title"],
+                 "score": round(float(p_scores[i]), 6),
+                 "text": index.passages[i]["text"]}
+                for r, i in enumerate(order)],
+            "params": {"top_k": top_k, "delta": delta, "lam": lam, "w_p": w_p,
+                       "damping": damping, "max_iterations": max_iterations},
+        }
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="LinearRAG two-stage retrieval")
+    parser.add_argument("--index", required=True)
+    parser.add_argument("--query", required=True)
+    parser.add_argument("--top-k", type=int, default=5)
+    parser.add_argument("--delta", type=float, default=0.5)
+    parser.add_argument("--max-iterations", type=int, default=4)
+    parser.add_argument("--lam", type=float, default=1.5)
+    parser.add_argument("--w-p", type=float, default=0.05)
+    parser.add_argument("--damping", type=float, default=0.5)
+    args = parser.parse_args()
+
+    from common import Embedder, TriGraphIndex, load_nlp
+
+    index = TriGraphIndex.load(args.index)
+    retriever = Retriever(index, Embedder(index.meta["embedding_model"]),
+                          load_nlp(index.meta["language"]))
+    result = retriever(args.query, top_k=args.top_k, delta=args.delta,
+                       max_iterations=args.max_iterations, lam=args.lam,
+                       w_p=args.w_p, damping=args.damping)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
+if __name__ == "__main__":
+    main()

@@ -63,6 +63,25 @@ def test_resave_over_existing_index_is_readable(tmp_path):
     assert loaded.entities == ["alpha", "beta", "gamma"]
 
 
+def test_failed_resave_leaves_old_index_intact(tmp_path, monkeypatch):
+    index = _tiny_index()
+    index.save(tmp_path / "idx")
+
+    def boom(*args, **kwargs):
+        raise OSError("disk full")
+
+    # common.py calls np.save on the shared numpy module object, so patching
+    # np.save here makes the second save fail mid-write, before the swap.
+    monkeypatch.setattr(np, "save", boom)
+    with pytest.raises(OSError):
+        index.save(tmp_path / "idx")
+    monkeypatch.undo()
+
+    loaded = TriGraphIndex.load(tmp_path / "idx")  # old index still readable
+    assert loaded.passages == index.passages
+    assert not list(tmp_path.glob(".tmp-*"))       # no temp leftovers
+
+
 def test_save_leaves_no_temp_dir(tmp_path):
     out = tmp_path / "idx"
     _tiny_index().save(out)

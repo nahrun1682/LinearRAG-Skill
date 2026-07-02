@@ -75,7 +75,7 @@ def activate_entities(
 
 def _min_max(x: np.ndarray) -> np.ndarray:
     lo, hi = float(x.min()), float(x.max())
-    if hi - lo < 1e-12:
+    if hi - lo < 1e-12:  # degenerate range: all passages equally ranked by DPR
         return np.zeros_like(x)
     return (x - lo) / (hi - lo)
 
@@ -90,7 +90,7 @@ def passage_seed_scores(sim_qp: np.ndarray, C: sparse.csr_matrix,
     activation level from stage 1 (Task 8's levels; 0 = inactive).
     """
     dpr = _min_max(sim_qp.astype(np.float64))
-    C_log = C.astype(np.float64).copy()
+    C_log = C.astype(np.float64)
     C_log.data = np.log1p(C_log.data)
     inv_level = np.divide(activation.astype(np.float64),
                           np.maximum(levels, 1),

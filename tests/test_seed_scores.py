@@ -28,3 +28,16 @@ def test_no_activation_falls_back_to_dpr_only():
                                  np.zeros(3), np.zeros(3, dtype=np.int32),
                                  lam=1.5, w_p=0.05)
     assert scores[0] > scores[1]
+
+
+def test_w_p_zero_produces_all_zeros():
+    scores = passage_seed_scores(SIM_QP, C, A, LEVELS, lam=1.5, w_p=0.0)
+    assert (scores == 0).all()
+
+
+def test_single_passage_still_scores_via_entity_bonus():
+    C_one = sparse.csr_matrix(np.array([[3, 1, 0]], dtype=np.float32))
+    score = passage_seed_scores(
+        np.array([0.75], dtype=np.float32), C_one, A, LEVELS, lam=1.5, w_p=0.05
+    )
+    assert score[0] > 0   # entity bonus survives DPR degeneracy

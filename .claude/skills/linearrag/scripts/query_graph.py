@@ -102,7 +102,8 @@ def passage_seed_scores(sim_qp: np.ndarray, C: sparse.csr_matrix,
 
 def personalized_pagerank(B: sparse.csr_matrix, passage_seeds: np.ndarray,
                           entity_seeds: np.ndarray, damping: float = 0.5,
-                          max_iter: int = 100, tol: float = 1e-9):
+                          max_iter: int = 100, tol: float = 1e-9,
+                          ) -> tuple[np.ndarray, np.ndarray]:
     """Paper eq.6: PPR over the passage-entity bipartite graph via power
     iteration. B is the binarized |P| x |E| biadjacency matrix. The reset
     distribution is the normalized concatenation of the two seed vectors.
@@ -132,4 +133,10 @@ def personalized_pagerank(B: sparse.csr_matrix, passage_seeds: np.ndarray,
             x = x_next
             break
         x = x_next
+    else:
+        import warnings
+        warnings.warn(
+            f"personalized_pagerank did not converge in {max_iter} iterations "
+            f"(tol={tol}); consider increasing max_iter or reducing damping",
+            stacklevel=2)
     return x[:n_p].astype(np.float32), x[n_p:].astype(np.float32)

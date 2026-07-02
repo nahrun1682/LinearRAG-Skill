@@ -114,7 +114,7 @@ Q: What nationality is Beatrice I's husband?
 
 ### Stage 2: Personalized PageRank（大域的な重要度）
 
-Stage 1の活性値をシードに、passage×entityの二部グラフでPPRを回して、上位k件のパッセージを返します。回答生成はしません——**そこはスキルを呼んだClaude本人の仕事**、という設計です（だから検索側のLLMコストもゼロ）。
+Stage 1の活性値をシードに、passage×entityの二部グラフでPPRを回して、上位k件のパッセージを返します。回答生成はしません——**それは検索結果を読むLLMの仕事**です。ここは誤解しやすいので強調しておくと、LinearRAGはただの検索手法であって**生成モデルには依存しません**。今回はClaude Codeスキルとして実装したので読み手がたまたまClaudeというだけで、CodexでもCopilotでも、APIで呼ぶどのLLMでも構いません（検索側がLLMを一切呼ばないので、そこのコストがゼロなのは同じです）。
 
 ## 4. Claude Codeスキルとしての実装
 

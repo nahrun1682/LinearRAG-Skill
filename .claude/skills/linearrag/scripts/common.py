@@ -59,6 +59,9 @@ class TriGraphIndex:
         Files are written to a sibling temp directory and swapped into place
         with ``os.replace``, so an interrupted rebuild leaves either the old
         index intact or the new index complete -- never a half-written mix.
+        A prior index is renamed aside during the swap and restored if the
+        swap fails. ``out_dir`` must be on the same filesystem as its parent
+        (``os.replace`` cannot cross filesystems).
         """
         out = Path(out_dir)
         out.parent.mkdir(parents=True, exist_ok=True)
@@ -83,11 +86,23 @@ class TriGraphIndex:
             meta = {**self.meta, "index_format": INDEX_FORMAT}
             (tmp / "meta.json").write_text(
                 json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
-            # Swap into place. Remove any prior index first: os.replace onto a
-            # non-empty directory is not portable/atomic across platforms.
+            # Swap into place. A prior index is renamed aside (not deleted)
+            # so it can be restored if the final rename fails; os.replace
+            # onto a non-empty directory is not portable across platforms.
+            old_backup = out.parent / f".bak-{out.name}.{os.getpid()}"
+            if old_backup.exists():
+                shutil.rmtree(old_backup)
             if out.exists():
-                shutil.rmtree(out)
-            os.replace(tmp, out)
+                os.replace(out, old_backup)
+            try:
+                os.replace(tmp, out)
+            except Exception:
+                if old_backup.exists():
+                    os.replace(old_backup, out)  # restore the old index
+                raise
+            else:
+                if old_backup.exists():
+                    shutil.rmtree(old_backup)
         finally:
             if tmp.exists():
                 shutil.rmtree(tmp)

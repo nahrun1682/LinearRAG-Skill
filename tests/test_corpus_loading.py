@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from build_graph import load_corpus
 
 
@@ -45,4 +47,28 @@ def test_directory_merges_small_paragraphs(tmp_path):
     passages = load_corpus(tmp_path, max_chars=200)
     # 10段落が max_chars を上限に少数のパッセージへ統合される
     assert 1 <= len(passages) < 10
+    # max_chars はマージ予算（ハード上限ではない）: 境界の1段落分の
+    # はみ出しを許容するための +50 マージン。
     assert all(len(p["text"]) <= 200 + 50 for p in passages)
+
+
+def test_directory_normalizes_crlf(tmp_path):
+    # CRLF の空行 (\r\n\r\n) でも段落として分割されること
+    (tmp_path / "doc.txt").write_bytes(b"Para one.\r\n\r\nPara two.")
+    passages = load_corpus(tmp_path, max_chars=10)
+    assert [p["text"] for p in passages] == ["Para one.", "Para two."]
+    assert all("\r" not in p["text"] for p in passages)
+
+
+def test_chunks_json_rejects_missing_colon(tmp_path):
+    path = tmp_path / "chunks.json"
+    path.write_text(json.dumps(["0:ok", "no separator here"]), encoding="utf-8")
+    with pytest.raises(ValueError, match="item 1"):
+        load_corpus(path)
+
+
+def test_chunks_json_rejects_non_string_item(tmp_path):
+    path = tmp_path / "chunks.json"
+    path.write_text(json.dumps(["0:ok", {"id": 1}]), encoding="utf-8")
+    with pytest.raises(TypeError, match="item 1.*dict"):
+        load_corpus(path)

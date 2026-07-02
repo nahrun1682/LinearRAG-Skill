@@ -82,12 +82,38 @@ def test_failed_resave_leaves_old_index_intact(tmp_path, monkeypatch):
     assert not list(tmp_path.glob(".tmp-*"))       # no temp leftovers
 
 
+def test_failed_swap_restores_old_index(tmp_path, monkeypatch):
+    import os
+
+    index = _tiny_index()
+    index.save(tmp_path / "idx")
+
+    real_replace = os.replace
+
+    def flaky(src, dst):
+        # Fail only the temp-dir -> index swap; let the backup renames
+        # (index -> .bak-*, .bak-* -> index) go through.
+        if ".tmp-" in str(src):
+            raise OSError("swap failed")
+        return real_replace(src, dst)
+
+    monkeypatch.setattr(os, "replace", flaky)
+    with pytest.raises(OSError, match="swap failed"):
+        index.save(tmp_path / "idx")
+    monkeypatch.undo()
+
+    loaded = TriGraphIndex.load(tmp_path / "idx")  # old index restored
+    assert loaded.passages == index.passages
+    assert not list(tmp_path.glob(".tmp-*"))       # no temp leftovers
+    assert not list(tmp_path.glob(".bak-*"))       # no backup leftovers
+
+
 def test_save_leaves_no_temp_dir(tmp_path):
     out = tmp_path / "idx"
     _tiny_index().save(out)
-    # Only the index dir should remain; no leftover temp dirs beside it.
-    siblings = [p.name for p in tmp_path.iterdir()]
-    assert siblings == ["idx"]
+    # Only the index dir should remain; no leftover temp/backup dirs beside it.
+    siblings = {p.name for p in tmp_path.iterdir()}
+    assert siblings == {"idx"}
     # And nothing temp-looking inside the index dir.
     assert all(not n.startswith(".tmp") for n in (p.name for p in out.iterdir()))
 

@@ -3,12 +3,13 @@
 # dependencies = [
 #     "numpy>=2.0",
 #     "scipy>=1.14",
-#     "spacy>=3.8",
+#     "spacy>=3.8,<3.9",
 #     "sentence-transformers>=3.0",
 #     "en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
 #     "ja-core-news-sm @ https://github.com/explosion/spacy-models/releases/download/ja_core_news_sm-3.8.0/ja_core_news_sm-3.8.0-py3-none-any.whl",
 # ]
 # ///
+# NOTE: standalone script; wider Python range than the project on purpose
 """Build a LinearRAG Tri-Graph index from a corpus (paper §3.1, token-free)."""
 from __future__ import annotations
 
@@ -17,7 +18,8 @@ from pathlib import Path
 
 
 def _split_paragraphs(text: str, max_chars: int) -> list[str]:
-    """Merge blank-line-separated paragraphs up to max_chars per passage."""
+    """Merge budget: paragraphs are merged up to ~max_chars; a single
+    paragraph longer than max_chars is kept intact (never hard-split)."""
     paras = [p.strip() for p in text.split("\n\n") if p.strip()]
     merged: list[str] = []
     buf = ""
@@ -44,6 +46,7 @@ def load_corpus(path: str | Path, max_chars: int = 1000) -> list[dict]:
                 continue
             rel = file.relative_to(path).as_posix()
             text = file.read_text(encoding="utf-8")
+            text = text.replace("\r\n", "\n").replace("\r", "\n")
             for i, chunk in enumerate(_split_paragraphs(text, max_chars)):
                 passages.append({"id": f"{rel}#{i}", "title": rel, "text": chunk})
         return passages
@@ -60,7 +63,13 @@ def load_corpus(path: str | Path, max_chars: int = 1000) -> list[dict]:
 
     # dataset-style chunks.json: list of "id:text" strings
     data = json.loads(path.read_text(encoding="utf-8"))
-    for item in data:
-        pid, _, text = item.partition(":")
+    for i, item in enumerate(data):
+        if not isinstance(item, str):
+            raise TypeError(
+                f"chunks.json item {i}: expected str, got {type(item).__name__}")
+        pid, sep, text = item.partition(":")
+        if not sep:
+            raise ValueError(
+                f"chunks.json item {i}: missing ':' separator in {item!r}")
         passages.append({"id": pid, "title": "", "text": text})
     return passages

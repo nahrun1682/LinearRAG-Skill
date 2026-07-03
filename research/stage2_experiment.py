@@ -32,7 +32,7 @@ import numpy as np
 
 sys.path.insert(0, ".claude/skills/linearrag/scripts")
 from common import Embedder, TriGraphIndex, load_nlp  # noqa: E402
-from resirag import ResiRetriever  # noqa: E402
+from resirag import ResiRetriever, _residual_query  # noqa: E402
 
 
 def _minmax(x):
@@ -74,6 +74,61 @@ def rrf_order(order_a, order_b, k, kk=60):
     return sorted(score, key=lambda i: -score[i])[:k]
 
 
+def select_cover_soft(ent, rel_norm, w_ent, k, alpha, gamma):
+    """A: saturating (soft) coverage. Covering an entity the m-th time yields
+    w_e * gamma**m instead of 0. gamma=0 reduces to hard coverage; gamma=1 to no
+    dedup. Keeps a bridge entity worth *some* credit on the 2nd gold so a shared
+    bridge no longer zeroes out the answer-side passage (fixes pair-breaking).
+    Submodular for gamma in [0,1] (concave saturation)."""
+    from collections import defaultdict
+    count = defaultdict(int)
+    chosen, remaining = [], set(range(len(ent)))
+    while len(chosen) < k and remaining:
+        best, bg = None, -1e18
+        for i in remaining:
+            cg = float(sum(w_ent[e] * (gamma ** count[e]) for e in ent[i]))
+            g = alpha * rel_norm[i] + cg
+            if g > bg:
+                bg, best = g, i
+        chosen.append(best)
+        for e in ent[best]:
+            count[int(e)] += 1
+        remaining.discard(best)
+    return chosen
+
+
+def select_residual(emb_cand, q_base, k, strength, ent=None, w_ent=None,
+                    alpha=0.0):
+    """C: residual-query slot selection — the Stage-1 residual math applied to
+    passage slots. Pick slot 1 by dense sim; project the chosen passages'
+    directions out of the query; re-score the rest by the RESIDUAL query; repeat.
+    A passage that merely paraphrases an already-chosen one goes orthogonal to
+    the residual and sinks; a passage answering the unmet part of the query
+    rises. If ent/w_ent given, add activation coverage on top (C+cover)."""
+    chosen, remaining, covered = [], list(range(len(emb_cand))), set()
+    while len(chosen) < k and remaining:
+        if chosen and strength > 0:
+            q_res = _residual_query(q_base, emb_cand[chosen], strength)
+        else:
+            q_res = q_base
+        dscore = emb_cand @ q_res
+        if ent is None:
+            best = max(remaining, key=lambda i: dscore[i])
+        else:
+            dmm = _minmax(dscore)
+            best, bg = None, -1e18
+            for i in remaining:
+                new = [e for e in ent[i] if e not in covered]
+                cg = float(w_ent[new].sum()) if new else 0.0
+                g = alpha * dmm[i] + cg
+                if g > bg:
+                    bg, best = g, i
+            covered.update(int(e) for e in ent[best])
+        chosen.append(best)
+        remaining.remove(best)
+    return chosen
+
+
 def select_mmr(sims, rel_norm, k, lam):
     """Greedy MMR: lam*relevance - (1-lam)*max cosine to chosen."""
     chosen, remaining = [], set(range(sims.shape[0]))
@@ -97,9 +152,21 @@ def main():
     ap.add_argument("--k", type=int, default=5)
     ap.add_argument("--alphas", default="0.3,0.5,1.0,2.0")
     ap.add_argument("--mmr-lams", default="0.5,0.7")
+    ap.add_argument("--gammas", default="0.3,0.5", help="soft-coverage saturation")
+    ap.add_argument("--res-strengths", default="1.0", help="residual projection")
     ap.add_argument("--limit", type=int, default=300)
     ap.add_argument("--type", default=None)
+    ap.add_argument("--focus", action="store_true",
+                    help="only the fix-candidate comparison (A/B/C vs refs)")
+    ap.add_argument("--s1", default="baseline", choices=["baseline", "resirag"],
+                    help="stage-1 that generates candidates+activation")
     a = ap.parse_args()
+
+    # stage-1 params fed to stage2_candidates: baseline (original LinearRAG) or
+    # ResiRAG (residual-query + relative threshold + adaptive gate).
+    s1_kw = ({} if a.s1 == "baseline" else
+             dict(residual_strength=1.0, residual_k=3, threshold_mode="relative",
+                  delta_rel=0.4, adaptive=True, adapt_lo=2, adapt_hi=20))
 
     index = TriGraphIndex.load(a.index)
     embed = Embedder(index.meta["embedding_model"])
@@ -113,24 +180,33 @@ def main():
     qs = qs[: a.limit]
     alphas = [float(x) for x in a.alphas.split(",")]
     lams = [float(x) for x in a.mmr_lams.split(",")]
+    gammas = [float(x) for x in a.gammas.split(",")]
+    res_s = [float(x) for x in a.res_strengths.split(",")]
 
-    conds = ["score", "oracle", "dense", "rrf_ppr_dense"] + \
-            [f"mmr@{l}" for l in lams] + [f"denseMMR@{l}" for l in lams] + \
-            [f"cover@{al}" for al in alphas] + [f"coverIDF@{al}" for al in alphas] + \
-            [f"coverDense@{al}" for al in alphas] + \
-            [f"coverUniform@{al}" for al in alphas] + \
-            [f"coverAll@{al}" for al in alphas]
+    # A/B/C fix candidates (alpha fixed at 1.0, the coverDense reference point)
+    abc = [f"coverSoft@{g}" for g in gammas] + ["coverDual@1.0", "dualAnchor"] + \
+          [f"residual@{s}" for s in res_s] + [f"residualCover@{s}" for s in res_s]
+    if a.focus:
+        conds = ["score", "oracle", "dense", "coverDense@1.0"] + abc
+    else:
+        conds = ["score", "oracle", "dense", "rrf_ppr_dense"] + \
+                [f"mmr@{l}" for l in lams] + [f"denseMMR@{l}" for l in lams] + \
+                [f"cover@{al}" for al in alphas] + \
+                [f"coverIDF@{al}" for al in alphas] + \
+                [f"coverDense@{al}" for al in alphas] + \
+                [f"coverUniform@{al}" for al in alphas] + \
+                [f"coverAll@{al}" for al in alphas] + abc
     rec = {c: 0.0 for c in conds}
     allg = {c: 0 for c in conds}
     n_gold = 0
 
-    retr.stage2_candidates(qs[0]["question"], top_n=a.top_n)  # warm
+    retr.stage2_candidates(qs[0]["question"], top_n=a.top_n, **s1_kw)  # warm
     for q in qs:
         gold = set(q.get("gold_ids", []))
         if not gold:
             continue
         n_gold += 1
-        cd = retr.stage2_candidates(q["question"], top_n=a.top_n)
+        cd = retr.stage2_candidates(q["question"], top_n=a.top_n, **s1_kw)
         cand_ids = cd["cand_ids"]
         rel_norm = _minmax(cd["rel"])
         ent = [C[r].indices for r in cd["cand_rows"]]
@@ -169,34 +245,51 @@ def main():
             got = {cand_ids[i] for i in chosen_idx} & gold
             return len(got) / len(gold), (got == gold)
 
+        q_base = cd["query_vec"] / (np.linalg.norm(cd["query_vec"]) + 1e-12)
+        rel_dual = 0.5 * rel_norm + 0.5 * dense_norm  # B: PPR+dense fused anchor
+        dual_order = list(np.argsort(rel_dual)[::-1])
+
         picks = {"score": select_score(len(cand_ids), a.k),
                  "dense": dense_order[:a.k],
-                 "rrf_ppr_dense": rrf_order(ppr_order, dense_order, a.k)}
-        for l in lams:
-            picks[f"mmr@{l}"] = select_mmr(sims, rel_norm, a.k, l)
-            # CONTROL: dense relevance + embedding-cosine dedup (generic diversity)
-            picks[f"denseMMR@{l}"] = select_mmr(sims, dense_norm, a.k, l)
-        for al in alphas:
-            picks[f"cover@{al}"] = select_cover(ent, rel_norm, w_cov, a.k, al)
-            picks[f"coverIDF@{al}"] = select_cover(ent, rel_norm, w_idf, a.k, al)
-            # OURS: dense relevance + activation-IDF coverage dedup (graph signal)
-            picks[f"coverDense@{al}"] = select_cover(ent, dense_norm, w_idf, a.k, al)
-            # CONTROLS (same dense anchor, weaker coverage signal):
-            picks[f"coverUniform@{al}"] = select_cover(ent, dense_norm, w_uni, a.k, al)
-            picks[f"coverAll@{al}"] = select_cover(ent, dense_norm, w_all, a.k, al)
+                 "coverDense@1.0": select_cover(ent, dense_norm, w_idf, a.k, 1.0)}
+        # A: soft/saturating coverage (dense anchor, alpha=1.0)
+        for g in gammas:
+            picks[f"coverSoft@{g}"] = select_cover_soft(
+                ent, dense_norm, w_idf, a.k, 1.0, g)
+        # B: dual anchor (PPR+dense) with/without activation coverage
+        picks["coverDual@1.0"] = select_cover(ent, rel_dual, w_idf, a.k, 1.0)
+        picks["dualAnchor"] = dual_order[:a.k]
+        # C: residual-query slot selection (pure) and + activation coverage
+        for s in res_s:
+            picks[f"residual@{s}"] = select_residual(emb_cand, q_base, a.k, s)
+            picks[f"residualCover@{s}"] = select_residual(
+                emb_cand, q_base, a.k, s, ent=ent, w_ent=w_idf, alpha=1.0)
+        if not a.focus:
+            picks["rrf_ppr_dense"] = rrf_order(ppr_order, dense_order, a.k)
+            for l in lams:
+                picks[f"mmr@{l}"] = select_mmr(sims, rel_norm, a.k, l)
+                picks[f"denseMMR@{l}"] = select_mmr(sims, dense_norm, a.k, l)
+            for al in alphas:
+                picks[f"cover@{al}"] = select_cover(ent, rel_norm, w_cov, a.k, al)
+                picks[f"coverIDF@{al}"] = select_cover(ent, rel_norm, w_idf, a.k, al)
+                picks[f"coverDense@{al}"] = select_cover(ent, dense_norm, w_idf, a.k, al)
+                picks[f"coverUniform@{al}"] = select_cover(ent, dense_norm, w_uni, a.k, al)
+                picks[f"coverAll@{al}"] = select_cover(ent, dense_norm, w_all, a.k, al)
         # oracle: best achievable from candidates with k slots
         gold_in_cand = [i for i, cid in enumerate(cand_ids) if cid in gold]
         picks["oracle"] = gold_in_cand[:a.k]
 
         for c, idx in picks.items():
+            if c not in rec:  # not in the selected conds set (focus mode)
+                continue
             r, ag = score_set(idx)
             rec[c] += r
             allg[c] += ag
 
     print(f"index={a.index}  n_gold={n_gold}  top_n={a.top_n}  k={a.k}")
-    print(f"{'selector':12s} {'GoldRecall':>11s} {'AllGoldHit':>11s}")
+    print(f"{'selector':16s} {'GoldRecall':>11s} {'AllGoldHit':>11s}")
     for c in conds:
-        print(f"{c:12s} {rec[c]/n_gold:>11.1%} {allg[c]/n_gold:>11.1%}")
+        print(f"{c:16s} {rec[c]/n_gold:>11.1%} {allg[c]/n_gold:>11.1%}")
 
 
 if __name__ == "__main__":

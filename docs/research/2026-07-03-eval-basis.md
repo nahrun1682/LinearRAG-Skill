@@ -53,8 +53,27 @@
 4. **AllGoldHitが律速**: GoldRecall(片方は取れる) と AllGoldHit(両方揃う) の差が「マルチホップの壁」。
    例: 2wiki 51%→27%、musique 34%→9%。ここを上げるのが本丸（Stage 2再ランキング）。
 
-## 未確認の較正変数（要判断）
+## 較正結果: NER は trf に統一する（決着）
 
-- **sm vs trf NER**: sm は高速だがNERが弱く、グラフが疎になっている可能性。trf索引で baseline が
-  大きく上がるなら、基盤のNERを trf に統一すべき。3データセットのtrf再構築は各15〜20分（OOM注意）。
+2wiki を trf で建て直して sm と baseline gold-recall を比較（300q）:
+
+| NER | Contain@5 | GoldRecall@5 | AllGoldHit@5 | 構築時間 | entities |
+|---|---|---|---|---|---|
+| en_core_web_sm | 46.0% | 51.2% | 28.7% | 109s | 39,801 |
+| **en_core_web_trf** | 53.0% | **63.5%** | **36.3%** | 1055s | 40,466 |
+
+**エンティティ数はほぼ同じ（+1.7%）なのに GoldRecall が +12.3pt**。数でなく質（境界・リンクの
+正しさ）がグラフの有用性を決める。結論:
+
+1. **評価基盤は trf に統一する**。sm の数値は LinearRAG の実力を ~12pt 過小評価していた。
+   さらに trf は「さっきまでの改良実験（旧コーパスも trf）」とも NER が整合する。
+2. hotpot / musique も trf で再構築が必要（各 ~25〜35分見込み、6119→17.6分の外挿）。
+3. Stage-2 headroom 探針（sm で実施）も trf で測り直す — 定性的な結論（gold が rank 6〜20 に
+   埋もれ、top-5 が冗長）は変わらないはずだが、上限の数値は更新される。
+
+### 更新後の 2wiki baseline（trf, 参考値・full 1000 は再測定予定）
+- 300q: Contain 53.0% / GoldRecall 63.5% / AllGoldHit 36.3%
+
+## 残る較正変数
+
 - **naive dense recall@5** との対比（グラフの寄与量の定量化）。

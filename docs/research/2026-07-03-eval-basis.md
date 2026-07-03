@@ -74,6 +74,23 @@
 ### 更新後の 2wiki baseline（trf, 参考値・full 1000 は再測定予定）
 - 300q: Contain 53.0% / GoldRecall 63.5% / AllGoldHit 36.3%
 
+## 評価ロジック検証（2026-07-03）
+
+gold 評価は結論を左右するので実データで検証済み:
+- **id 対応**: 索引の `passage["id"]` == corpus.jsonl 行番号、本文も完全一致（2wiki/musique 全件）。
+  gold_ids が正しいパッセージを指すことを保証。
+- **musique gold 同定**: 根拠段落 2648 件が **100% 本文一致**で同定、title フォールバック 0 件・
+  取り違え 0 件（同一タイトル別段落を誤割当していない）。
+- **スポットチェック**: gold_id のタイトルが元データの supporting タイトルと一致
+  （`['FC Barcelona','FC Barcelona']` の同一タイトル2段落ケース含む）。
+- **end-to-end**: headroom 探針で recall@50 が 0 でなく 67%（2wiki）＝ 索引→検索→評価の
+  id 経路が通っていることの傍証。
+- 指標の不変条件 GoldRecall > AllGoldHit が全報告値で成立。
+
+軽微な注意（バグではない）: `gold_units_title`（JEMHopQA の title 戦略のみ）は evidence の
+object(e[2]) がタイトルに偶然一致すると gold に加える → JEMHopQA の探索的数値がわずかに
+不正確になりうる。正典 ids ベースの数値には無関係。
+
 ## 残る較正変数
 
 - **naive dense recall@5** との対比（グラフの寄与量の定量化）。

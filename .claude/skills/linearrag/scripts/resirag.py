@@ -207,6 +207,62 @@ class ResiRetriever(qg.Retriever):
                        "delta_rel": delta_rel, "sigma_renorm": sigma_renorm},
         }
 
+    def stage2_candidates(self, query: str, top_n: int = 50, *,
+                          delta: float = 0.8, max_iterations: int = 4,
+                          lam: float = 1.5, w_p: float = 0.05,
+                          damping: float = 0.5, sigma_top_n: int = 200,
+                          residual_strength: float = 0.0, residual_k: int = 3,
+                          threshold_mode: str = "absolute", delta_rel: float = 0.5,
+                          sigma_renorm: bool = True, adaptive: bool = False,
+                          adapt_lo: int = 2, adapt_hi: int = 20) -> dict:
+        """Run stage 1 + PPR once and expose the top_n candidates plus the raw
+        activation state, for Stage-2 selection experiments (score-order / MMR /
+        coverage-greedy) that all share one stage-1 pass. Defaults reproduce the
+        ORIGINAL LinearRAG stage 1 (residual_strength=0, absolute delta).
+
+        NOTE: intentionally mirrors __call__'s stage-1/PPR block rather than
+        refactoring it, to keep __call__'s verified original-parity untouched.
+        """
+        index = self.index
+        query_vec = self.embed([query])[0]
+        q_entities = [normalize_entity(ent.text) for ent in self.nlp(query).ents
+                      if not qg._is_numeric_label(ent.label_)]
+        q_entities = [e for e in q_entities if e]
+        q_vecs = (self.embed(q_entities) if q_entities
+                  else np.zeros((0, 1), dtype=np.float32))
+        a0 = qg.initial_activation(q_vecs, index.emb_entities)
+
+        if residual_strength <= 0 and threshold_mode == "absolute":
+            sigma = qg._sparsify_top_n(
+                np.asarray(index.emb_sentences @ query_vec), sigma_top_n)
+            activation, levels, _ = qg.activate_entities(
+                a0, index.M, sigma, delta=delta, max_iterations=max_iterations)
+        else:
+            activation, levels, _ = activate_entities_residual(
+                a0, index.M, index.emb_sentences, index.emb_entities, query_vec,
+                delta=delta, max_iterations=max_iterations,
+                sigma_top_n=sigma_top_n, residual_strength=residual_strength,
+                residual_k=residual_k, threshold_mode=threshold_mode,
+                delta_rel=delta_rel, sigma_renorm=sigma_renorm,
+                adaptive=adaptive, adapt_lo=adapt_lo, adapt_hi=adapt_hi)
+
+        sim_qp = index.emb_passages @ query_vec
+        p_seeds = qg.passage_seed_scores(sim_qp, index.C, activation, levels,
+                                         lam=lam, w_p=w_p)
+        p_scores, _ = qg._ppr_iterate(self._W, self._n_p, p_seeds, activation,
+                                      damping=damping)
+
+        cand = np.argsort(p_scores)[::-1][:top_n]
+        return {
+            "cand_rows": cand,
+            "rel": p_scores[cand].astype(np.float64),
+            "activation": activation,
+            "levels": levels,
+            "query_vec": query_vec,
+            "cand_ids": [index.passages[i]["id"] for i in cand],
+            "cand_titles": [index.passages[i]["title"] for i in cand],
+        }
+
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="ResiRAG residual-query retrieval")

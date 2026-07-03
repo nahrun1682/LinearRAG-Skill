@@ -42,7 +42,24 @@
 | musique | baseline | 38.5% | 34.2% | 8.8% |
 | musique | ResiRAG-fuse | 38.9% | 34.6% | **10.5%** |
 
-## 所見
+## 決定版基準値（trf, full 1000）
+
+sm から trf に統一後の**正式な基準値**（[較正結果](#較正結果-ner-は-trf-に統一する決着)参照）。
+以後の改良はこの trf baseline と比較する。
+
+| データセット | 条件 | Contain@5 | GoldRecall@5 | AllGoldHit@5 |
+|---|---|---|---|---|
+| 2wiki | baseline | 53.5% | 63.1% | 35.2% |
+| 2wiki | ResiRAG-fuse | 54.5% | 63.3% | 36.6% |
+| hotpot | baseline | 54.7% | 51.8% | 29.5% |
+| hotpot | ResiRAG-fuse | 55.7% | 51.7% | 29.8% |
+| musique | baseline | 39.6% | 37.4% | 11.0% |
+| musique | ResiRAG-fuse | 40.4% | 38.5% | **14.0%** |
+
+sm→trf で baseline GoldRecall は 2wiki +11.8 / hotpot +2.7 / musique +3.2 pt 改善。
+ResiRAG-fuse(Stage 1) は trf でも小幅（AllGoldHit +0.3〜+3.0pt、musique で最大）。
+
+## 所見（sm 時点の記録）
 
 1. **旧chunks.json基準（2wiki 72.9% contain）は使えない**: 小さく易しい非正典コーパス＋タイトル欠落。
    今後は `_hpr` 正典コーパスを基準にする。

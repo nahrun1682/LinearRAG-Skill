@@ -296,7 +296,29 @@ AllGoldHit = 全ホップ満たす。Contain と違い YES/NO 45 問も評価可
   **英日で compositional の符号が genuinely 異なる**。原因候補: ginza NER 品質、または手法×問題型の
   相互作用。今後掘る価値のある本物の謎（測定ノイズではない）。
 
-### 6.8 headroom（trf, 300q, Stage 2 の天井）
+### 6.8 BM25 基準線（同一正典コーパス・同一 gold 指標, full 1000q）— 必須の sanity check
+`research/eval_bm25.py`（rank-bm25, LLM/NER/埋め込みなし）。GoldRecall@5 / AllGoldHit@5:
+
+| データセット | BM25(text) | BM25(title+text) | LinearRAG(score) | coverSoft |
+|---|---|---|---|---|
+| 2wiki | 58.1 / 26.4 | 63.9 / 31.2 | 63.1 / 35.2 | **66.0 / 34.8** |
+| hotpot | 65.5 / 39.2 | **71.0 / 46.6** | 51.8 / 29.5 | 67.0 / 42.3 |
+| musique | 34.4 / 7.5 | 40.4 / 9.7 | 37.4 / 11.0 | **44.5 / 12.0** |
+
+- **BM25 は極めて強い**。title+text で LinearRAG baseline(score) を GoldRecall 全データセットで上回る。
+  「グラフが BM25 に勝つ」通説は単発検索・この指標では不成立。
+- **hotpot は BM25(title+text) が coverSoft に勝つ**（71.0>67.0, 46.6>42.3）＝ hotpot は語彙で解ける
+  「見かけのマルチホップ」。graph の優位が出ない。
+- **coverSoft は真に難しい 2wiki・musique で BM25 に勝つ**（GoldRecall +2.1 / +4.1）。
+- **フェアネス**: coverSoft は BM25(text) には全データセットで勝つ。BM25 にタイトルを与えると hotpot のみ逆転。
+- **主張の修正**: 「全データセットで SoTA」でなく「**真のマルチホップ(2wiki/musique)で BM25 含む
+  基準線を上回る。hotpot は語彙で解ける例外**」。より誠実で守れる。
+- **含意**: BM25 は必須基準線（無しで投稿は即死だった）。**レバー2（coverSoft を BM25 候補に載せる）が
+  最重要に格上げ** — BM25+coverSoft > BM25 なら「選択レイヤーは語彙検索にも効く」＝ hotpot の脅威を反転。
+- **関連（要精読）**: "Shifting from Ranking to **Set Selection** for Retrieval"（ACL2025, aclanthology
+  2025.acl-long.861）＝我々の「Select 段」の直接先行の可能性。差別化の要。
+
+### 6.9 headroom（trf, 300q, Stage 2 の天井）
 | | 2wiki | musique | hotpot |
 |---|---|---|---|
 | AllGoldHit@5 現在 | 36.3 | 9.7 | 31.3 |

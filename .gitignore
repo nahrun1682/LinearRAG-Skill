@@ -234,3 +234,4 @@ AGENTS.md
 CLAUDE.md
 dataset/
 docs/paper/
+.env

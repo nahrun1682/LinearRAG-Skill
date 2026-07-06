@@ -46,6 +46,8 @@ ap.add_argument("--questions", required=True)
 ap.add_argument("--base-n", type=int, default=30, help="BM25 base pool size")
 ap.add_argument("--add-n", type=int, default=20, help="candidates each injector adds")
 ap.add_argument("--limit", type=int, default=300)
+ap.add_argument("--rm3-fb", type=int, default=10, help="RM3 feedback docs")
+ap.add_argument("--rm3-terms", type=int, default=20, help="RM3 expansion terms")
 ap.add_argument("--llm", action="store_true", help="also run GPT-4o selection per pool")
 ap.add_argument("--model", default="gpt-4o-2024-08-06")
 ap.add_argument("--workers", type=int, default=10)
@@ -78,7 +80,11 @@ def toprows(scores, n, exclude):
     return out
 
 
-injectors = ["bm25", "+dense", "+dualEntity", "+graphPPR"]
+injectors = ["bm25", "+dense", "+dualEntity", "+rm3", "+graphPPR"]
+from collections import Counter
+STOP = set("the a an of to in and or is are was were be been being by for on at as with that "
+           "this it its from which who whom whose what when where how why not no s t "
+           "he she they we you his her their our your".split())
 rows = []
 retr.stage2_candidates(qs[0]["question"], top_n=a.base_n)
 for q in qs:
@@ -108,6 +114,17 @@ for q in qs:
             de_scores = np.maximum(de_scores, np.asarray(embP @ embE[ge]))
         de_add = toprows(de_scores, a.add_n, base_set)
 
+    # RM3 injector: pseudo-relevance feedback query expansion (classic TEXT bridge)
+    qset = set(tok(Q))
+    tf = Counter()
+    for r in base[:a.rm3_fb]:
+        for t in tok(corpus[r].get("title", "") + " " + corpus[r]["text"]):
+            if t not in qset and t not in STOP and not t.isdigit() and len(t) > 2:
+                tf[t] += 1
+    exp_terms = [t for t, _ in tf.most_common(a.rm3_terms)]
+    exp_query = tok(Q) * 3 + exp_terms  # RM3-lite: original kept, expansion added
+    rm3_add = toprows(bm25.get_scores(exp_query), a.add_n, base_set)
+
     # graph PPR injector
     cd = retr.stage2_candidates(Q, top_n=a.base_n + a.add_n)
     ppr_rows = [int(r) for r in cd["cand_rows"] if int(r) not in base_set][:a.add_n]
@@ -122,6 +139,7 @@ for q in qs:
         "bm25": base,
         "+dense": dedup(base + dense_add),
         "+dualEntity": dedup(base + de_add),
+        "+rm3": dedup(base + rm3_add),
         "+graphPPR": dedup(base + ppr_rows),
     }
     # hiddenness of the most-hidden gold (query dense+lexical percentile)

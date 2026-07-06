@@ -1,0 +1,516 @@
+<title>The Hidden Hop — 研究ビジュアルガイド</title>
+<style>
+  :root{
+    --bg:#EAEEF2; --surface:#FBFCFD; --surface-2:#F0F3F7; --ink:#141A22;
+    --ink-soft:#39424E; --muted:#5F6A78; --line:#D3DAE2;
+    --visible:#0C7A83; --visible-bg:#DBEDEE;
+    --hidden:#BC4620; --hidden-bg:#F5E1D8;
+    --accent:#274A8C; --accent-bg:#DBE3F1;
+    --good:#1F8A5B; --warn:#9C6B12;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Code","JetBrains Mono",Menlo,Consolas,monospace;
+    --maxw:940px; --measure:64ch;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0C1016; --surface:#151B23; --surface-2:#1C232D; --ink:#E7ECF3;
+      --ink-soft:#BAC4D1; --muted:#8B96A6; --line:#28323E;
+      --visible:#37B0B8; --visible-bg:#0F2C2E;
+      --hidden:#E77C4C; --hidden-bg:#33190F;
+      --accent:#7C9BE6; --accent-bg:#172234;
+      --good:#3FB77E; --warn:#D9A441;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0C1016; --surface:#151B23; --surface-2:#1C232D; --ink:#E7ECF3;
+    --ink-soft:#BAC4D1; --muted:#8B96A6; --line:#28323E;
+    --visible:#37B0B8; --visible-bg:#0F2C2E; --hidden:#E77C4C; --hidden-bg:#33190F;
+    --accent:#7C9BE6; --accent-bg:#172234; --good:#3FB77E; --warn:#D9A441;
+  }
+  :root[data-theme="light"]{
+    --bg:#EAEEF2; --surface:#FBFCFD; --surface-2:#F0F3F7; --ink:#141A22;
+    --ink-soft:#39424E; --muted:#5F6A78; --line:#D3DAE2;
+    --visible:#0C7A83; --visible-bg:#DBEDEE; --hidden:#BC4620; --hidden-bg:#F5E1D8;
+    --accent:#274A8C; --accent-bg:#DBE3F1; --good:#1F8A5B; --warn:#9C6B12;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+    font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:clamp(1.2rem,4vw,3rem) clamp(1rem,4vw,2rem)}
+  p,li{color:var(--ink-soft)}
+  .measure{max-width:var(--measure)}
+  h1,h2,h3{font-family:var(--serif);color:var(--ink);text-wrap:balance;line-height:1.18;font-weight:600}
+  a{color:var(--accent)}
+  .eyebrow{font-family:var(--mono);font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--muted);margin:0 0 .8rem}
+  /* header */
+  header{border-bottom:1px solid var(--line);padding-bottom:2.2rem;margin-bottom:2.6rem}
+  h1{font-size:clamp(2.1rem,5.4vw,3.3rem);margin:.2rem 0 .6rem;letter-spacing:-.01em}
+  h1 .sub{display:block;font-size:clamp(1rem,2.4vw,1.35rem);color:var(--muted);font-style:italic;
+    font-weight:400;margin-top:.5rem}
+  .lede{font-size:1.15rem;max-width:var(--measure)}
+  .chips{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1.4rem}
+  .chip{font-family:var(--mono);font-size:.74rem;padding:.32rem .7rem;border-radius:100px;
+    border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);letter-spacing:.02em}
+  .chip.on{border-color:var(--accent);color:var(--accent);background:var(--accent-bg)}
+  /* sections */
+  section{margin:3.4rem 0;scroll-margin-top:1rem}
+  h2{font-size:clamp(1.5rem,3.2vw,2.05rem);margin:0 0 .3rem;letter-spacing:-.005em}
+  .kicker{font-family:var(--mono);font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--accent);margin:0 0 .5rem}
+  h3{font-size:1.18rem;margin:1.8rem 0 .6rem}
+  /* cards */
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;
+    padding:clamp(1.1rem,3vw,1.7rem);margin:1.3rem 0}
+  .fig{background:var(--surface);border:1px solid var(--line);border-radius:14px;
+    padding:clamp(1rem,3vw,1.6rem);margin:1.5rem 0;overflow-x:auto}
+  figcaption{font-size:.9rem;color:var(--muted);margin-top:1rem;text-align:center;font-style:italic}
+  svg{display:block;max-width:100%;height:auto;margin:0 auto}
+  .svg-txt{font-family:var(--sans);fill:var(--ink)}
+  .svg-lbl{font-family:var(--mono);}
+  /* timeline */
+  .molt{display:grid;grid-template-columns:auto 1fr;gap:1.1rem;padding:1.1rem 0;border-bottom:1px solid var(--line)}
+  .molt:last-child{border-bottom:0}
+  .molt .num{font-family:var(--mono);font-size:.82rem;color:var(--bg);background:var(--ink);
+    width:2.1rem;height:2.1rem;border-radius:7px;display:grid;place-items:center;font-weight:600}
+  .molt.now .num{background:var(--accent);color:#fff}
+  .molt h3{margin:.1rem 0 .35rem;font-size:1.08rem}
+  .molt .tag{font-family:var(--mono);font-size:.7rem;padding:.12rem .5rem;border-radius:5px;margin-right:.4rem}
+  .tag.dead{background:var(--hidden-bg);color:var(--hidden)}
+  .tag.live{background:var(--visible-bg);color:var(--visible)}
+  .molt p{margin:.3rem 0;font-size:.96rem}
+  /* pipeline */
+  .pipe{display:grid;grid-template-columns:1fr auto 1fr;gap:.6rem;align-items:stretch;margin:1.2rem 0}
+  @media(max-width:620px){.pipe{grid-template-columns:1fr}.pipe .arrow{transform:rotate(90deg)}}
+  .stage{border:1px solid var(--line);border-radius:12px;padding:1.1rem;background:var(--surface-2)}
+  .stage .st{font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .stage h3{margin:.3rem 0 .5rem;font-size:1.05rem}
+  .stage.done{border-color:var(--good)}
+  .stage.open{border-color:var(--warn)}
+  .status{font-family:var(--mono);font-size:.78rem;font-weight:600;display:inline-flex;align-items:center;gap:.4rem}
+  .status.done{color:var(--good)} .status.open{color:var(--warn)}
+  .arrow{display:grid;place-items:center;color:var(--muted);font-size:1.4rem}
+  /* formula */
+  .formula{font-family:var(--mono);font-size:clamp(.92rem,2.4vw,1.15rem);background:var(--surface-2);
+    border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:1rem 1.2rem;margin:1rem 0;
+    overflow-x:auto;line-height:2}
+  .vtok{color:var(--visible);font-weight:600} .htok{color:var(--hidden);font-weight:600}
+  .atok{color:var(--accent);font-weight:600}
+  /* gradient bar */
+  .grad{height:34px;border-radius:8px;margin:1rem 0 .3rem;
+    background:linear-gradient(90deg,var(--visible),#8a8f7a 48%,var(--hidden))}
+  .grad-lbl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:.76rem;color:var(--muted)}
+  /* bars */
+  .legend{display:flex;flex-wrap:wrap;gap:1rem;margin:.4rem 0 1rem;font-size:.82rem;font-family:var(--mono);color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:.4rem}
+  .sw{width:13px;height:13px;border-radius:3px;display:inline-block}
+  .sw.v{background:var(--visible)} .sw.h{background:var(--hidden)} .sw.f{background:var(--accent)} .sw.g{background:var(--muted)}
+  .bars{display:flex;flex-direction:column;gap:.5rem}
+  .bar-row{display:grid;grid-template-columns:118px 1fr 46px;gap:.7rem;align-items:center}
+  .bar-row .nm{font-family:var(--mono);font-size:.8rem;color:var(--ink-soft);text-align:right}
+  .track{background:var(--surface-2);border-radius:4px;height:20px;overflow:hidden;border:1px solid var(--line)}
+  .fill{height:100%;border-radius:4px 0 0 4px;min-width:2px}
+  .fill.v{background:var(--visible)} .fill.h{background:var(--hidden)} .fill.f{background:var(--accent)} .fill.g{background:var(--muted)}
+  .val{font-family:var(--mono);font-size:.82rem;font-variant-numeric:tabular-nums;color:var(--ink);text-align:right}
+  .mirror{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:1rem}
+  @media(max-width:760px){.mirror{grid-template-columns:1fr}}
+  .mcol{border:1px solid var(--line);border-radius:12px;padding:1rem;background:var(--surface-2)}
+  .mcol h4{margin:0 0 .2rem;font-family:var(--serif);font-size:1.05rem;color:var(--ink)}
+  .mcol .binlbl{font-family:var(--mono);font-size:.72rem;color:var(--muted);margin:.8rem 0 .3rem;
+    display:flex;align-items:center;gap:.4rem}
+  .dot{width:8px;height:8px;border-radius:50%}
+  .dot.v{background:var(--visible)}.dot.h{background:var(--hidden)}
+  .mbar{display:grid;grid-template-columns:64px 1fr 40px;gap:.5rem;align-items:center;margin:.25rem 0}
+  .mbar .mn{font-family:var(--mono);font-size:.72rem;color:var(--muted);text-align:right}
+  /* scorecard */
+  table.score{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.92rem}
+  table.score th,table.score td{padding:.6rem .7rem;text-align:center;border-bottom:1px solid var(--line)}
+  table.score th{font-family:var(--mono);font-size:.74rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  table.score td:first-child,table.score th:first-child{text-align:left;font-family:var(--serif)}
+  table.score .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .win{color:var(--good);font-weight:700} .lose{color:var(--hidden);font-weight:700}
+  .verdict{font-family:var(--mono);font-size:.78rem;padding:.2rem .5rem;border-radius:5px}
+  .verdict.w{background:var(--visible-bg);color:var(--visible)} .verdict.l{background:var(--hidden-bg);color:var(--hidden)}
+  /* prior work */
+  .rel{display:grid;gap:.7rem;margin-top:1rem}
+  .rel .row{display:grid;grid-template-columns:150px 1fr;gap:1rem;padding:.8rem 0;border-bottom:1px solid var(--line)}
+  @media(max-width:620px){.rel .row{grid-template-columns:1fr;gap:.2rem}}
+  .rel .who{font-family:var(--serif);font-weight:600;color:var(--ink)}
+  .rel .who small{display:block;font-family:var(--mono);font-size:.68rem;color:var(--muted);font-weight:400}
+  .callout{border:1px solid var(--accent);background:var(--accent-bg);border-radius:12px;padding:1.1rem 1.3rem;margin:1.4rem 0}
+  .callout .k{font-family:var(--mono);font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin:0 0 .3rem}
+  footer{border-top:1px solid var(--line);margin-top:3.5rem;padding-top:1.5rem;color:var(--muted);font-size:.86rem}
+  .honest{background:var(--hidden-bg);border-radius:12px;padding:1.1rem 1.3rem;margin:1.4rem 0}
+  .honest .k{font-family:var(--mono);font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--hidden);margin:0 0 .3rem}
+  .honest p{color:var(--ink-soft);margin:.3rem 0}
+  strong{color:var(--ink)}
+  @media (prefers-reduced-motion:no-preference){
+    .flow{stroke-dasharray:5 6;animation:dash 1.4s linear infinite}
+    @keyframes dash{to{stroke-dashoffset:-22}}
+  }
+</style>
+
+<div class="wrap">
+<header>
+  <p class="eyebrow">トークンフリー多ホップ検索 · 研究ビジュアルガイド</p>
+  <h1>The Hidden Hop
+    <span class="sub">クエリに見えない2ホップ目を、LLMなしでどう拾うか</span>
+  </h1>
+  <p class="lede measure">マルチホップ検索の失敗は「選択」でなく「候補集め」で起きる。その正体は
+  <strong>クエリに語彙的にも意味的にも似ていない2ホップ目の正解＝hidden hop</strong>。
+  このページは、LinearRAG から出発したこの研究が今どこにいるかを、図で辿れるようにしたものです。</p>
+  <div class="chips">
+    <span class="chip on">制約: トークンフリー（LLM不使用）</span>
+    <span class="chip on">制約: 訓練フリー</span>
+    <span class="chip">評価: 2Wiki · HotpotQA · MuSiQue（各1000問）</span>
+  </div>
+</header>
+
+<!-- 1. JOURNEY -->
+<section>
+  <p class="kicker">Section 1 — これまでの道のり</p>
+  <h2>LinearRAG から始まり、5回脱皮した</h2>
+  <p class="measure">出発点は既存手法 <strong>LinearRAG</strong>（固有名詞グラフ＋PPRの軽い多ホップ検索）を
+  「改良して論文を書く」こと。毎回死んだのは<em>手法の主張</em>で、生き残って強くなったのは<em>診断</em>。
+  番号は実際に起きた順序です。</p>
+
+  <div class="card">
+    <div class="molt">
+      <div class="num">0</div>
+      <div>
+        <h3>LinearRAG を直接改良（coverSoft）</h3>
+        <p><span class="tag dead">DIED</span>クロスエンコーダに負け／SETR が先行研究／GPT-4o が上限を示し、手法レースが三方向で閉じた。</p>
+      </div>
+    </div>
+    <div class="molt">
+      <div class="num">1</div>
+      <div>
+        <h3>問いを転換 → Hidden Hop を発見</h3>
+        <p><span class="tag live">SURVIVED</span>失敗の正体は「クエリに似てない2ホップ目の正解」。それを測る物差し
+        <strong>hiddenness指標</strong>を作った。<em>この診断レンズが以後ずっと背骨になる。</em></p>
+      </div>
+    </div>
+    <div class="molt">
+      <div class="num">2</div>
+      <div>
+        <h3>グラフを「検索器 → 注入器」に読み替え</h3>
+        <p><span class="tag live">SURVIVED</span>グラフPPRだけが hidden hop を候補プールに注入できる（dense / RM3 / entity-ANN に勝利）。</p>
+      </div>
+    </div>
+    <div class="molt">
+      <div class="num">3</div>
+      <div>
+        <h3>SPRIG対決で前提が崩壊 → もっと強い絵へ</h3>
+        <p><span class="tag dead">DIED</span>「グラフは検索器として弱い」という前提。<span class="tag live">SURVIVED</span>
+        <strong>棲み分けの法則</strong>（言葉検索＝可視の王／エンティティPPR＝隠れの王）と、
+        既存手法が種の置き方で自分の伝播力を殺していた事実。</p>
+      </div>
+    </div>
+    <div class="molt now">
+      <div class="num">4</div>
+      <div>
+        <h3>選択もトークンフリーで解けるか（現在地）</h3>
+        <p><span class="tag live">NOW</span>可視/隠れを枠で分ける<strong>スロット選択</strong>で GPT-4o に挑戦中。
+        2Wiki では既に 4o 超え、Hotpot / MuSiQue はまだ届かず。</p>
+      </div>
+    </div>
+  </div>
+  <div class="callout">
+    <p class="k">要するに</p>
+    <p style="margin:0">「LinearRAGを良くする研究」から出発し、いまは
+    <strong>トークンフリー多ホップ検索の失敗を診断し、可視/隠れの棲み分けで組み直す研究</strong>に化けた。
+    LinearRAG 自身は今や「種にDPRを混ぜて伝播力を殺していた一例」という登場人物の一人。</p>
+  </div>
+</section>
+
+<!-- 2. WHERE WE ARE -->
+<section>
+  <p class="kicker">Section 2 — 現在地</p>
+  <h2>システムの2段階：候補集めは解決、選択が最前線</h2>
+  <div class="pipe">
+    <div class="stage done">
+      <div class="st">段階1</div>
+      <h3>候補集め</h3>
+      <p style="font-size:.92rem;margin:.2rem 0 .7rem">数万の段落 → 50件に絞る</p>
+      <span class="status done">● 解決済み — 融合プールが全データセット最良</span>
+    </div>
+    <div class="arrow">→</div>
+    <div class="stage open">
+      <div class="st">段階2</div>
+      <h3>選択</h3>
+      <p style="font-size:.92rem;margin:.2rem 0 .7rem">50件 → 最終5件（LLMに渡す材料）</p>
+      <span class="status open">◐ 挑戦中 — 2Wikiで4o超え、他は追走</span>
+    </div>
+  </div>
+  <p class="measure">段階1で正解を50件に入れても、段階2で落とせば無意味。<strong>4連敗してきた壁</strong>は、
+  どの選択器も「クエリに似てるか」で採点していたこと——hidden hop は定義上似てないので沈む。</p>
+</section>
+
+<!-- 3. HIDDEN HOP CONCEPT -->
+<section>
+  <p class="kicker">Section 3 — 中心概念</p>
+  <h2>Hidden Hop とは何か</h2>
+  <p class="measure">質問「Lothair II の母はいつ死んだ？」は2つの根拠を要する。1ホップ目は取りやすい。
+  2ホップ目は<strong>橋エンティティ経由でしか繋がらず、クエリと似ていない</strong>。</p>
+  <figure class="fig">
+    <svg viewBox="0 0 760 260" role="img" aria-label="Hidden hop の概念図">
+      <!-- query -->
+      <rect x="20" y="105" width="150" height="52" rx="9" fill="var(--accent-bg)" stroke="var(--accent)"/>
+      <text x="95" y="128" text-anchor="middle" class="svg-txt" font-size="13" font-weight="600">クエリ</text>
+      <text x="95" y="146" text-anchor="middle" class="svg-lbl" font-size="10" fill="var(--muted)">「Lothair IIの母は…」</text>
+      <!-- lexical link to hop1 -->
+      <line x1="170" y1="131" x2="290" y2="131" stroke="var(--visible)" stroke-width="2.5"/>
+      <text x="230" y="122" text-anchor="middle" class="svg-lbl" font-size="9.5" fill="var(--visible)">語彙一致</text>
+      <!-- hop1 passage -->
+      <rect x="290" y="95" width="170" height="72" rx="9" fill="var(--visible-bg)" stroke="var(--visible)"/>
+      <text x="375" y="118" text-anchor="middle" class="svg-txt" font-size="13" font-weight="600">hop-1（可視）</text>
+      <text x="375" y="136" text-anchor="middle" class="svg-lbl" font-size="10" fill="var(--visible)">「Lothair IIの母はErmengarde」</text>
+      <text x="375" y="153" text-anchor="middle" class="svg-lbl" font-size="10" fill="var(--muted)">BM25: 上位</text>
+      <!-- bridge entity -->
+      <circle cx="530" cy="131" r="30" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.5"/>
+      <text x="530" y="128" text-anchor="middle" class="svg-txt" font-size="11" font-weight="600">橋</text>
+      <text x="530" y="143" text-anchor="middle" class="svg-lbl" font-size="9" fill="var(--muted)">Ermengarde</text>
+      <line x1="460" y1="131" x2="500" y2="131" stroke="var(--ink)" stroke-width="1.5"/>
+      <!-- hop2 passage -->
+      <rect x="590" y="95" width="150" height="72" rx="9" fill="var(--hidden-bg)" stroke="var(--hidden)"/>
+      <text x="665" y="118" text-anchor="middle" class="svg-txt" font-size="13" font-weight="600">hop-2（隠れ）</text>
+      <text x="665" y="136" text-anchor="middle" class="svg-lbl" font-size="10" fill="var(--hidden)">「Ermengardeは851年死去」</text>
+      <text x="665" y="153" text-anchor="middle" class="svg-lbl" font-size="10" fill="var(--hidden)">BM25: 2403位</text>
+      <line x1="560" y1="131" x2="590" y2="131" stroke="var(--ink)" stroke-width="1.5"/>
+      <!-- no link query->hop2 -->
+      <path d="M95 157 Q 380 245 665 167" fill="none" stroke="var(--hidden)" stroke-width="1.5" stroke-dasharray="3 5" opacity=".6"/>
+      <text x="380" y="238" text-anchor="middle" class="svg-lbl" font-size="10" fill="var(--hidden)">クエリからは語彙・意味とも届かない ✕</text>
+    </svg>
+    <figcaption>hop-2 の正解にはクエリ語が一切出てこない。橋エンティティ Ermengarde を介してのみ hop-1 と繋がる。</figcaption>
+  </figure>
+</section>
+
+<!-- 4. HIDDENNESS METRIC -->
+<section>
+  <p class="kicker">Section 4 — 物差し</p>
+  <h2>hiddenness指標：隠れ度を測る</h2>
+  <p class="measure">「どのクエリ基準手法から見ても似ていない」を [0,1] で数値化する。0＝丸見え、1＝完全に隠れている。</p>
+  <div class="formula">
+    hidden(g) = 1 − ½ · ( <span class="vtok">P<sub>dense</sub>(g)</span> + <span class="htok">P<sub>bm25</sub>(g)</span> )
+    <br><span style="color:var(--muted);font-size:.85em">
+    &nbsp;&nbsp;<span class="vtok">P<sub>dense</sub>(g)</span> = 意味類似(埋め込み内積)でのパーセンタイル順位<br>
+    &nbsp;&nbsp;<span class="htok">P<sub>bm25</sub>(g)</span> = 語彙一致(BM25)でのパーセンタイル順位<br>
+    &nbsp;&nbsp;質問単位: hidden(q) = max<sub>g∈gold</sub> hidden(g) &nbsp;（最も隠れた1件が律速）</span>
+  </div>
+  <div class="grad"></div>
+  <div class="grad-lbl"><span>hidden ≈ 0 &nbsp;可視（クエリに似てる）</span><span>隠れ（橋の先）&nbsp; hidden ≈ 1</span></div>
+  <p class="measure" style="margin-top:1.3rem;font-size:.95rem">
+    <strong>設計のキモ</strong> ①dense と BM25 の両方を使う＝片方だけでは取り逃す隠れ方を捉える。
+    ②絶対スコアでなくパーセンタイルにして、スケールの違う2信号を公平に平均。
+    ③質問集約は max＝AllGoldHit（全正解が揃う）は最も隠れた1件で決まるから。</p>
+</section>
+
+<!-- 5. GRAPH + PPR -->
+<section>
+  <p class="kicker">Section 5 — 仕組み</p>
+  <h2>グラフと純エンティティPPR：どこに水を注ぐかが全て</h2>
+  <p class="measure">グラフは二部構造。<strong>段落</strong>と<strong>固有名詞</strong>を、「その段落がその固有名詞に言及していたら」線で繋ぐ。
+  段落同士は直接繋がらない——必ず固有名詞を経由する。PPRは「種に水を注ぎ、線を伝って染み出させ、常に種へ引き戻す」計算です。</p>
+  <div class="formula">
+    <span class="atok">x</span><sup>(t+1)</sup> = (1−d)·<span class="atok">r</span> + d·<span class="atok">W·x</span><sup>(t)</sup>
+    <br><span style="color:var(--muted);font-size:.85em">
+    &nbsp;&nbsp;r = 種の分布（正規化） · W = 二部グラフの遷移行列 · d = 0.5<br>
+    &nbsp;&nbsp;展開すると &nbsp;x ≈ (1−d)r + d(1−d)<span class="atok">Wr</span> + d²(1−d)<span class="atok">W²r</span> + …<br>
+    &nbsp;&nbsp;→ <span class="atok">Wᵏr</span> の項が「k ホップ先」に対応（dᵏで減衰しつつ橋を渡る）</span>
+  </div>
+  <figure class="fig">
+    <svg viewBox="0 0 760 320" role="img" aria-label="エンティティ種とパッセージ種のPPR比較">
+      <!-- divider -->
+      <line x1="380" y1="30" x2="380" y2="300" stroke="var(--line)" stroke-width="1"/>
+      <text x="190" y="26" text-anchor="middle" class="svg-txt" font-size="13" font-weight="600" fill="var(--visible)">A. 固有名詞に水を注ぐ → 届く</text>
+      <text x="570" y="26" text-anchor="middle" class="svg-txt" font-size="13" font-weight="600" fill="var(--hidden)">B. 段落に水を注ぐ → 動けない</text>
+
+      <!-- Panel A: entity seed -->
+      <!-- seed entity -->
+      <circle cx="70" cy="165" r="20" fill="var(--accent)" stroke="var(--accent)"/>
+      <text x="70" y="169" text-anchor="middle" font-size="10" fill="#fff" font-weight="700">種E</text>
+      <text x="70" y="205" text-anchor="middle" class="svg-lbl" font-size="9" fill="var(--muted)">クエリ固有名詞</text>
+      <!-- hop1 passages -->
+      <rect x="150" y="95" width="70" height="30" rx="6" fill="var(--visible-bg)" stroke="var(--visible)"/>
+      <rect x="150" y="150" width="70" height="30" rx="6" fill="var(--visible-bg)" stroke="var(--visible)"/>
+      <text x="185" y="114" text-anchor="middle" font-size="9" fill="var(--visible)">段落(hop1)</text>
+      <text x="185" y="169" text-anchor="middle" font-size="9" fill="var(--visible)">段落(hop1)</text>
+      <!-- bridge entity -->
+      <circle cx="270" cy="135" r="15" fill="var(--surface)" stroke="var(--ink)"/>
+      <text x="270" y="139" text-anchor="middle" font-size="8" fill="var(--ink)">橋</text>
+      <!-- hop2 hidden passage -->
+      <rect x="300" y="205" width="72" height="32" rx="6" fill="var(--hidden-bg)" stroke="var(--hidden)"/>
+      <text x="336" y="221" text-anchor="middle" font-size="9" fill="var(--hidden)">隠れ段落</text>
+      <text x="336" y="233" text-anchor="middle" font-size="8" fill="var(--hidden)">hop2</text>
+      <!-- flows -->
+      <line class="flow" x1="90" y1="158" x2="150" y2="112" stroke="var(--accent)" stroke-width="2"/>
+      <line class="flow" x1="90" y1="172" x2="150" y2="163" stroke="var(--accent)" stroke-width="2"/>
+      <line class="flow" x1="220" y1="163" x2="256" y2="140" stroke="var(--accent)" stroke-width="2"/>
+      <line class="flow" x1="278" y1="149" x2="312" y2="205" stroke="var(--accent)" stroke-width="2"/>
+      <text x="240" y="290" text-anchor="middle" class="svg-lbl" font-size="9.5" fill="var(--visible)">1歩で全段落へ散り、橋を渡って2歩で隠れ段落に到達</text>
+
+      <!-- Panel B: passage seed -->
+      <rect x="440" y="150" width="74" height="32" rx="6" fill="var(--accent)" stroke="var(--accent)"/>
+      <text x="477" y="170" text-anchor="middle" font-size="10" fill="#fff" font-weight="700">種P（段落）</text>
+      <!-- stuck water halo -->
+      <circle cx="477" cy="166" r="46" fill="none" stroke="var(--hidden)" stroke-width="1.2" stroke-dasharray="3 4" opacity=".55"/>
+      <!-- far passage unreachable -->
+      <rect x="640" y="150" width="74" height="32" rx="6" fill="var(--surface-2)" stroke="var(--line)"/>
+      <text x="677" y="170" text-anchor="middle" font-size="9" fill="var(--muted)">別の段落</text>
+      <path d="M525 166 L632 166" stroke="var(--muted)" stroke-width="1.4" stroke-dasharray="2 5" opacity=".5"/>
+      <text x="578" y="158" text-anchor="middle" font-size="14" fill="var(--hidden)">✕</text>
+      <text x="577" y="250" text-anchor="middle" class="svg-lbl" font-size="9.5" fill="var(--hidden)">水は種の段落に留まる（上位50件 = 種と100%一致）</text>
+    </svg>
+    <figcaption>同じグラフでも種の置き場所で結果が真逆。エンティティ種は橋を渡って隠れ段落に届き、段落種は構造上その場から動けない。</figcaption>
+  </figure>
+  <p class="measure" style="font-size:.95rem">
+    これが今日の一番の発見。既存のトークンフリーGraphRAGが伸び悩んだ理由は種の設計ミス——
+    <strong>SPRIGのHybridは段落に注いで動けず、LinearRAGは固有名詞の水にクエリ類似の水を混ぜて流れを薄めていた</strong>。
+    純粋に固有名詞だけに注ぐと、伝播がフルパワーになる。</p>
+</section>
+
+<!-- 6. REGIME COMPLEMENTARITY -->
+<section>
+  <p class="kicker">Section 6 — 中心的な結果</p>
+  <h2>棲み分けの法則：可視の王と隠れの王は鏡像</h2>
+  <p class="measure">正解が候補50件に入る率（プール被覆@50）を、hiddenness で層別すると——
+  <strong>言葉検索(BM25)は可視を支配し隠れで全滅、エンティティPPRはその鏡像</strong>。数字は全1000問。</p>
+  <div class="legend">
+    <span><i class="sw g"></i>BM25（言葉検索）</span>
+    <span><i class="sw h"></i>エンティティPPR（橋渡し）</span>
+    <span><i class="sw f"></i>融合（両取り）</span>
+  </div>
+  <div class="mirror">
+    <!-- 2wiki -->
+    <div class="mcol">
+      <h4>2WikiMultiHop</h4>
+      <div class="binlbl"><span class="dot v"></span>可視ビン</div>
+      <div class="mbar"><span class="mn">BM25</span><div class="track"><div class="fill g" style="width:100%"></div></div><span class="val">100</span></div>
+      <div class="mbar"><span class="mn">entPPR</span><div class="track"><div class="fill h" style="width:88%"></div></div><span class="val">88</span></div>
+      <div class="mbar"><span class="mn">融合</span><div class="track"><div class="fill f" style="width:100%"></div></div><span class="val">100</span></div>
+      <div class="binlbl"><span class="dot h"></span>深く隠れたビン</div>
+      <div class="mbar"><span class="mn">BM25</span><div class="track"><div class="fill g" style="width:1%"></div></div><span class="val">0</span></div>
+      <div class="mbar"><span class="mn">entPPR</span><div class="track"><div class="fill h" style="width:60%"></div></div><span class="val">60</span></div>
+      <div class="mbar"><span class="mn">融合</span><div class="track"><div class="fill f" style="width:60%"></div></div><span class="val">60</span></div>
+    </div>
+    <!-- hotpot -->
+    <div class="mcol">
+      <h4>HotpotQA</h4>
+      <div class="binlbl"><span class="dot v"></span>可視ビン</div>
+      <div class="mbar"><span class="mn">BM25</span><div class="track"><div class="fill g" style="width:100%"></div></div><span class="val">100</span></div>
+      <div class="mbar"><span class="mn">entPPR</span><div class="track"><div class="fill h" style="width:75%"></div></div><span class="val">75</span></div>
+      <div class="mbar"><span class="mn">融合</span><div class="track"><div class="fill f" style="width:100%"></div></div><span class="val">100</span></div>
+      <div class="binlbl"><span class="dot h"></span>隠れたビン</div>
+      <div class="mbar"><span class="mn">BM25</span><div class="track"><div class="fill g" style="width:48%"></div></div><span class="val">48</span></div>
+      <div class="mbar"><span class="mn">entPPR</span><div class="track"><div class="fill h" style="width:68%"></div></div><span class="val">68</span></div>
+      <div class="mbar"><span class="mn">融合</span><div class="track"><div class="fill f" style="width:78%"></div></div><span class="val">78</span></div>
+    </div>
+    <!-- musique -->
+    <div class="mcol">
+      <h4>MuSiQue（最難）</h4>
+      <div class="binlbl"><span class="dot v"></span>可視ビン</div>
+      <div class="mbar"><span class="mn">BM25</span><div class="track"><div class="fill g" style="width:90%"></div></div><span class="val">90</span></div>
+      <div class="mbar"><span class="mn">entPPR</span><div class="track"><div class="fill h" style="width:62%"></div></div><span class="val">62</span></div>
+      <div class="mbar"><span class="mn">融合</span><div class="track"><div class="fill f" style="width:99%"></div></div><span class="val">99</span></div>
+      <div class="binlbl"><span class="dot h"></span>深く隠れたビン</div>
+      <div class="mbar"><span class="mn">BM25</span><div class="track"><div class="fill g" style="width:1%"></div></div><span class="val">0</span></div>
+      <div class="mbar"><span class="mn">entPPR</span><div class="track"><div class="fill h" style="width:29%"></div></div><span class="val">29</span></div>
+      <div class="mbar"><span class="mn">融合</span><div class="track"><div class="fill f" style="width:32%"></div></div><span class="val">32</span></div>
+    </div>
+  </div>
+  <p class="measure" style="margin-top:1.3rem">
+    どちらも万能ではない。<strong>片方が強い所で、片方が弱い。</strong>
+    hiddenness という一本の軸が、どちらが勝つかを予言する——これが診断レンズの説明力の頂点です。</p>
+</section>
+
+<!-- 7. FUSION -->
+<section>
+  <p class="kicker">Section 7 — 統合</p>
+  <h2>棲み分けるなら組め：融合プールが全データセット最良</h2>
+  <p class="measure">可視は BM25/RRF、隠れはエンティティPPR に任せ、2つの候補を合体。
+  各ビンで「良い方」を取るので、可視も隠れも取りこぼさない。全体プール被覆@50（全1000問）：</p>
+  <div class="legend">
+    <span><i class="sw g"></i>BM25</span><span><i class="sw h"></i>エンティティPPR単独</span><span><i class="sw f"></i>融合（提案）</span>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">2WikiMultiHop</h3>
+    <div class="bars">
+      <div class="bar-row"><span class="nm">BM25</span><div class="track"><div class="fill g" style="width:47.9%"></div></div><span class="val">47.9</span></div>
+      <div class="bar-row"><span class="nm">エンティティPPR</span><div class="track"><div class="fill h" style="width:76.6%"></div></div><span class="val">76.6</span></div>
+      <div class="bar-row"><span class="nm">融合</span><div class="track"><div class="fill f" style="width:83.2%"></div></div><span class="val">83.2</span></div>
+    </div>
+    <h3>HotpotQA</h3>
+    <div class="bars">
+      <div class="bar-row"><span class="nm">BM25</span><div class="track"><div class="fill g" style="width:86%"></div></div><span class="val">86.0</span></div>
+      <div class="bar-row"><span class="nm">エンティティPPR</span><div class="track"><div class="fill h" style="width:72.8%"></div></div><span class="val">72.8</span></div>
+      <div class="bar-row"><span class="nm">融合</span><div class="track"><div class="fill f" style="width:94.6%"></div></div><span class="val">94.6</span></div>
+    </div>
+    <h3>MuSiQue</h3>
+    <div class="bars">
+      <div class="bar-row"><span class="nm">BM25</span><div class="track"><div class="fill g" style="width:29.6%"></div></div><span class="val">29.6</span></div>
+      <div class="bar-row"><span class="nm">エンティティPPR</span><div class="track"><div class="fill h" style="width:40.6%"></div></div><span class="val">40.6</span></div>
+      <div class="bar-row"><span class="nm">融合</span><div class="track"><div class="fill f" style="width:58.7%"></div></div><span class="val">58.7</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 8. SELECTION FRONTIER -->
+<section>
+  <p class="kicker">Section 8 — 最前線</p>
+  <h2>本当のボトルネックは選択でなく候補生成</h2>
+  <p class="measure">50件から最終5件を選ぶ選択も試した（枠で分けるスロット／パラメータフリーの min-rank＝
+  「順位を足さず良い方で入場」）。だが現行の安いLLM(gpt-5.4-mini)を参照に置くと、もっと大事なことが見えた——
+  <strong>同じLLMでも、候補プールが貧しいと 43、我々のトークンフリー融合プールを与えると 77.7 に跳ねる</strong>。
+  指標は AllGoldHit@5（2Wiki, 300問, 全て同一subset）。</p>
+  <table class="score">
+    <thead><tr><th>選択器 × 候補プール</th><th>AllGoldHit@5</th><th>意味</th></tr></thead>
+    <tbody>
+      <tr><td>gpt-5.4-mini × BM25プール</td><td class="num">43.0</td><td>最強LLMでも貧しい候補では伸びない</td></tr>
+      <tr><td>min-rank（無料）× <strong>融合プール</strong></td><td class="num win">54.3</td><td><span class="verdict w">完全無料が、素朴候補のLLMに勝つ</span></td></tr>
+      <tr><td>gpt-5.4-mini × <strong>融合プール</strong></td><td class="num">77.7</td><td>良い候補を得たLLMは +34.7 跳ねる</td></tr>
+    </tbody>
+  </table>
+  <p class="measure" style="font-size:.95rem">
+    3つの差分がそのまま主張になる：<strong>①候補生成の価値</strong>（選択器を固定して +34.7＝プールだけで跳ねる）／
+    <strong>②完全無料 &gt; 現行LLM+素朴検索</strong>（54.3 &gt; 43.0）／<strong>③選択自体はLLMが上</strong>（77.7 &gt; 54.3、正直に）。
+    選択の枠分け(スロット/min-rank)は「順位を足す混合」より確かに良い（隠れホップを埋めない）が、読解勝負では
+    LLMに及ばない。<strong>勝負どころは選択でなく候補生成</strong>だった。</p>
+  <div class="honest">
+    <p class="k">正直な現在地（型番に強い主張へ）</p>
+    <p>「トークンフリー選択がLLMに勝つ」は現行モデルでは成立しない（脆い主張だった）。代わりに残るのは
+    <strong>「マルチホップの真のボトルネックは候補生成。それはトークンフリーに解け、我々の融合プールは最強クラスの
+    LLM選択器を +35 押し上げる」</strong>——新しいLLMほど良いプールを欲しがるので、時代が進むほど価値が上がる。</p>
+  </div>
+</section>
+
+<!-- 9. POSITIONING -->
+<section>
+  <p class="kicker">Section 9 — 立ち位置</p>
+  <h2>先行研究との距離</h2>
+  <div class="rel">
+    <div class="row"><div class="who">LinearRAG<small>arXiv 2510.10114</small></div>
+      <div>出発点の乗り物。固有名詞グラフ＋PPR。<strong>種にDPRを混ぜて自分の伝播力を殺していた</strong>——我々の主張を裏付ける一例に。</div></div>
+    <div class="row"><div class="who">HippoRAG<small>NeurIPS 2024</small></div>
+      <div>エンティティPPRで多ホップ＝我々の「純エンティティPPR」の思想の源流。ただし<strong>KG構築にLLM</strong>（トークン課金）。我々はトークンフリー。</div></div>
+    <div class="row"><div class="who">SPRIG<small>arXiv 2602.23372</small></div>
+      <div>NER共起グラフ＋PPR、CPU-only。<strong>グラフを"検索器"として使い、種の置き方で損をしていた</strong>。我々は棲み分けを診断し"注入器＋融合"に。</div></div>
+    <div class="row"><div class="who">StratRAG<small>2026</small></div>
+      <div>「橋エンティティはクエリに現れない」と<strong>現象を観察</strong>。我々はそれを測り(hiddenness)、機序を与え、解いた。</div></div>
+  </div>
+  <div class="callout">
+    <p class="k">新規性の重心</p>
+    <p style="margin:0">エンティティPPRや融合そのものは既出（HippoRAG/SPRIG）。我々の新しさは<strong>「hiddenness指標という計器」＋
+    「失敗の解剖（候補生成の崖・可視/隠れの鏡像）」＋「既存手法が伝播力を自滅させていた特定」</strong>——手法でなく診断が主役。</p>
+  </div>
+</section>
+
+<footer>
+  <p><strong>The Hidden Hop</strong> — トークンフリー多ホップ検索の診断と棲み分け。
+  数値は 2Wiki / HotpotQA / MuSiQue（HippoRAG正典プール, en_core_web_trf）全1000問のプール被覆@50 および AllGoldHit@5。
+  GPT-4o 比較列は融合プール選択（150問）。詳細ログ: <span class="svg-lbl">docs/research/00-MASTER</span>、
+  論文用整理: <span class="svg-lbl">docs/research/01-PAPER-hidden-hop.md</span>。</p>
+  <p style="margin-top:.6rem;color:var(--muted)">最終更新 2026-07-06 · このページは研究の現在地を図で辿るための内部ドキュメント</p>
+</footer>
+</div>

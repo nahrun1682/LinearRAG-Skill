@@ -465,18 +465,20 @@
   <strong>同じLLMでも、候補プールが貧しいと 43、我々のトークンフリー融合プールを与えると 77.7 に跳ねる</strong>。
   指標は AllGoldHit@5（2Wiki, 300問, 全て同一subset）。</p>
   <table class="score">
-    <thead><tr><th>選択器 × 候補プール</th><th>AllGoldHit@5</th><th>意味</th></tr></thead>
+    <thead><tr><th>データセット</th><th>gpt-5.4-mini<br>× BM25プール</th><th>min-rank(無料)<br>× 融合プール</th><th>gpt-5.4-mini<br>× 融合プール</th><th>プールの価値<br>(同一LLM)</th></tr></thead>
     <tbody>
-      <tr><td>gpt-5.4-mini × BM25プール</td><td class="num">43.0</td><td>最強LLMでも貧しい候補では伸びない</td></tr>
-      <tr><td>min-rank（無料）× <strong>融合プール</strong></td><td class="num win">54.3</td><td><span class="verdict w">完全無料が、素朴候補のLLMに勝つ</span></td></tr>
-      <tr><td>gpt-5.4-mini × <strong>融合プール</strong></td><td class="num">77.7</td><td>良い候補を得たLLMは +34.7 跳ねる</td></tr>
+      <tr><td>2Wiki（隠れ多）</td><td class="num">43.0</td><td class="num win">54.3</td><td class="num">77.7</td><td class="num"><span class="verdict w">+34.7</span></td></tr>
+      <tr><td>MuSiQue（最難）</td><td class="num">16.3</td><td class="num win">22.7</td><td class="num">29.0</td><td class="num"><span class="verdict w">+12.7</span></td></tr>
+      <tr><td>HotpotQA（可視多）</td><td class="num">76.0</td><td class="num">61.7</td><td class="num">82.7</td><td class="num"><span class="verdict w">+6.7</span></td></tr>
     </tbody>
   </table>
   <p class="measure" style="font-size:.95rem">
-    3つの差分がそのまま主張になる：<strong>①候補生成の価値</strong>（選択器を固定して +34.7＝プールだけで跳ねる）／
-    <strong>②完全無料 &gt; 現行LLM+素朴検索</strong>（54.3 &gt; 43.0）／<strong>③選択自体はLLMが上</strong>（77.7 &gt; 54.3、正直に）。
-    選択の枠分け(スロット/min-rank)は「順位を足す混合」より確かに良い（隠れホップを埋めない）が、読解勝負では
-    LLMに及ばない。<strong>勝負どころは選択でなく候補生成</strong>だった。</p>
+    3つの差分がそのまま主張になる：<strong>①候補生成の価値はデータの隠れ度に比例</strong>——同じLLMが我々の融合プールで
+    2Wiki +34.7 / MuSiQue +12.7 / Hotpot +6.7 跳ねる（隠れが多いほど効く、診断が予言する並び）。
+    <strong>②完全無料 &gt; 現行LLM+素朴検索</strong>（隠れ多の2Wiki・MuSiQueで無料min-rankがLLM@BM25に勝つ；
+    可視多のHotpotは負け、正直に）。<strong>③選択自体はLLMが上</strong>（同一プールで一貫、+21〜23）。
+    枠分け(min-rank)は「順位を足す混合」より良い（隠れホップを埋めない）が、読解勝負ではLLMに及ばない。
+    <strong>勝負どころは選択でなく候補生成</strong>だった。</p>
   <div class="honest">
     <p class="k">正直な現在地（型番に強い主張へ）</p>
     <p>「トークンフリー選択がLLMに勝つ」は現行モデルでは成立しない（脆い主張だった）。代わりに残るのは

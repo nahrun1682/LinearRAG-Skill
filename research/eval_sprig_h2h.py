@@ -53,8 +53,8 @@ ap.add_argument("--add-n", type=int, default=20)
 ap.add_argument("--limit", type=int, default=300)
 ap.add_argument("--damping", type=float, default=0.5)
 ap.add_argument("--llm", action="store_true", help="also run LLM selection on a pool")
-ap.add_argument("--llm-pool", default="fuseRRF", choices=["fuseRRF", "bm25"],
-                help="which candidate pool the LLM selects from (isolates pool value)")
+ap.add_argument("--llm-pool", default="both", choices=["both", "fuseRRF", "bm25"],
+                help="which candidate pool(s) the LLM selects from (isolates pool value)")
 ap.add_argument("--model", default="gpt-5.4-mini")
 ap.add_argument("--workers", type=int, default=8)
 a = ap.parse_args()
@@ -298,11 +298,11 @@ if a.llm:
     def clip(t, w=110):
         return " ".join(t.split()[:w])
 
-    def gpt_pick(item, cache):
+    def gpt_pick(item, pool, cache):
         if item["q"] in cache and cache[item["q"]] is not None:
             picks = cache[item["q"]]
         else:
-            prows = item[a.llm_pool + "_rows"]
+            prows = item[pool + "_rows"]
             ctx = "\n".join(f"[{j+1}] ({corpus[r].get('title','')}) {clip(corpus[r]['text'])}"
                             for j, r in enumerate(prows))
             prompt = PROMPT.format(num=len(prows), q=item["q"], ctx=ctx)
@@ -327,13 +327,15 @@ if a.llm:
         cache[item["q"]] = picks
         return picks
 
-    cfile = f"research/cache_llmref_{name}_{a.model}_{a.llm_pool}_{a.limit}.json"
-    cache = json.load(open(cfile, encoding="utf-8")) if os.path.exists(cfile) else {}
-    with cf.ThreadPoolExecutor(max_workers=a.workers) as ex:
-        picks = list(ex.map(lambda it: gpt_pick(it, cache), rows))
-    json.dump(cache, open(cfile, "w", encoding="utf-8"), ensure_ascii=False)
-    hit = np.mean([it["gold"] <= set((p or [])[:5]) for it, p in zip(rows, picks)])
-    nfail = sum(1 for p in picks if p is None)
-    print(f"\n=== LLM reference on {a.llm_pool} pool ({a.model}) — AllGoldHit@5 ===")
-    print(f"  {a.model} @ {a.llm_pool:8s} {hit:>6.1%}   (fails={nfail}/{len(rows)})")
-    print("  compare: token-free min-rank / slot on the fuseRRF pool (above)")
+    llm_pools = ["bm25", "fuseRRF"] if a.llm_pool == "both" else [a.llm_pool]
+    print(f"\n=== LLM pool-value ({a.model}) — AllGoldHit@5 ===")
+    for pool in llm_pools:
+        cfile = f"research/cache_llmref_{name}_{a.model}_{pool}_{a.limit}.json"
+        cache = json.load(open(cfile, encoding="utf-8")) if os.path.exists(cfile) else {}
+        with cf.ThreadPoolExecutor(max_workers=a.workers) as ex:
+            picks = list(ex.map(lambda it: gpt_pick(it, pool, cache), rows))
+        json.dump(cache, open(cfile, "w", encoding="utf-8"), ensure_ascii=False)
+        hit = np.mean([it["gold"] <= set((p or [])[:5]) for it, p in zip(rows, picks)])
+        nfail = sum(1 for p in picks if p is None)
+        print(f"  {a.model} @ {pool:8s} {hit:>6.1%}   (fails={nfail}/{len(rows)})")
+    print("  (compare token-free min-rank/slot on the fuseRRF pool, above)")

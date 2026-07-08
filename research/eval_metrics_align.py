@@ -87,7 +87,8 @@ def slots(vis, hid, n_vis, n_hid, rest):
 
 
 K_DEPTH = 200
-methods = ["bm25", "rrf", "entPPR", "minrank", "slot23"]
+LINRAG_LAM = 0.05  # faithful LinearRAG (paper's optimal ~0.05), NOT our old 1.5 default
+methods = ["bm25", "rrf", "entPPR", "linrag05", "minrank", "fuseLin", "slot23"]
 agg = {m: {"gr5": [], "gr10": [], "agh5": [], "lh5": []} for m in methods}
 n_lh = 0
 retr.stage2_candidates(qs[0]["question"], top_n=50)
@@ -115,11 +116,16 @@ for q in qs:
     eppr = list(np.argsort(ps)[::-1][:K_DEPTH])
     hid_list = eppr if q_ents else []
 
+    # faithful LinearRAG (lam=0.05) full retriever ranking
+    lin = [int(r) for r in retr.stage2_candidates(Q, top_n=K_DEPTH, lam=LINRAG_LAM)["cand_rows"]]
+
     rankings = {
         "bm25": bm_order[:50],
         "rrf": rrf_ord[:50],
         "entPPR": eppr[:50],
-        "minrank": min_rank_merge(rrf_ord, hid_list, 50),
+        "linrag05": lin[:50],
+        "minrank": min_rank_merge(rrf_ord, hid_list, 50),         # ours: RRF ∪ pureEnt
+        "fuseLin": min_rank_merge(rrf_ord, lin, 50),              # RRF ∪ faithful LinearRAG
         "slot23": slots(rrf_ord, hid_list, 2, 3, rrf_ord),
     }
     goldset = set(gold)

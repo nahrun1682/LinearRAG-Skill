@@ -1,0 +1,678 @@
+<title>Hidden Hop 研究解説 — 何をやって、何が新しいのか</title>
+<style>
+  :root{
+    --bg:#EDF0F3; --surface:#FCFDFE; --surface-2:#F2F4F8; --ink:#151A21;
+    --ink-soft:#3A424D; --muted:#616C7A; --line:#D5DBE3;
+    --visible:#0C7A83; --visible-bg:#DCEDEF;
+    --hidden:#BC4620; --hidden-bg:#F6E2D9;
+    --accent:#27498C; --accent-bg:#DCE4F2;
+    --good:#1F8A5B; --good-bg:#DFF0E7; --warn:#9C6B12;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Code",Menlo,Consolas,monospace;
+    --maxw:920px; --measure:66ch;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0D1117; --surface:#161C24; --surface-2:#1D2530; --ink:#E8EDF4;
+      --ink-soft:#BBC5D2; --muted:#8C97A7; --line:#293341;
+      --visible:#39B2BA; --visible-bg:#0F2D2F; --hidden:#E77D4D; --hidden-bg:#341A0F;
+      --accent:#7D9CE7; --accent-bg:#182335; --good:#41B980; --good-bg:#11291D; --warn:#D9A441;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0D1117; --surface:#161C24; --surface-2:#1D2530; --ink:#E8EDF4;
+    --ink-soft:#BBC5D2; --muted:#8C97A7; --line:#293341;
+    --visible:#39B2BA; --visible-bg:#0F2D2F; --hidden:#E77D4D; --hidden-bg:#341A0F;
+    --accent:#7D9CE7; --accent-bg:#182335; --good:#41B980; --good-bg:#11291D; --warn:#D9A441;
+  }
+  :root[data-theme="light"]{
+    --bg:#EDF0F3; --surface:#FCFDFE; --surface-2:#F2F4F8; --ink:#151A21;
+    --ink-soft:#3A424D; --muted:#616C7A; --line:#D5DBE3;
+    --visible:#0C7A83; --visible-bg:#DCEDEF; --hidden:#BC4620; --hidden-bg:#F6E2D9;
+    --accent:#27498C; --accent-bg:#DCE4F2; --good:#1F8A5B; --good-bg:#DFF0E7; --warn:#9C6B12;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+    font-size:17px;line-height:1.75;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:clamp(1.2rem,4vw,3rem) clamp(1rem,4vw,2rem)}
+  p,li{color:var(--ink-soft)}
+  .measure{max-width:var(--measure)}
+  h1,h2,h3{font-family:var(--serif);color:var(--ink);text-wrap:balance;line-height:1.22;font-weight:600}
+  h1{font-size:clamp(1.9rem,5vw,2.8rem);margin:.2rem 0 .7rem;letter-spacing:-.01em}
+  h2{font-size:clamp(1.45rem,3.1vw,1.95rem);margin:0 0 .5rem}
+  h3{font-size:1.17rem;margin:1.8rem 0 .5rem}
+  .eyebrow{font-family:var(--mono);font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--muted);margin:0 0 .7rem}
+  .kicker{font-family:var(--mono);font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--accent);margin:0 0 .5rem}
+  header{border-bottom:1px solid var(--line);padding-bottom:2rem;margin-bottom:2.2rem}
+  .lede{font-size:1.13rem;max-width:var(--measure)}
+  section{margin:3.4rem 0}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;
+    padding:clamp(1.1rem,3vw,1.6rem);margin:1.2rem 0}
+  .fig{background:var(--surface);border:1px solid var(--line);border-radius:14px;
+    padding:clamp(1rem,3vw,1.5rem);margin:1.4rem 0;overflow-x:auto}
+  figcaption{font-size:.88rem;color:var(--muted);margin-top:.9rem;text-align:center;font-style:italic}
+  svg{display:block;max-width:100%;height:auto;margin:0 auto}
+  .qa{border-left:3px solid var(--accent);padding:.2rem 0 .2rem 1.1rem;margin:1.4rem 0}
+  .qa .q{font-family:var(--serif);font-weight:600;color:var(--ink);font-size:1.06rem;margin:0 0 .3rem}
+  .qa p{margin:.3rem 0}
+  .formula{font-family:var(--mono);font-size:clamp(.9rem,2.3vw,1.08rem);background:var(--surface-2);
+    border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:1rem 1.2rem;margin:1rem 0;
+    overflow-x:auto;line-height:2}
+  .vtok{color:var(--visible);font-weight:600} .htok{color:var(--hidden);font-weight:600}
+  .atok{color:var(--accent);font-weight:600}
+  table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.93rem}
+  th,td{padding:.6rem .7rem;text-align:center;border-bottom:1px solid var(--line)}
+  th{font-family:var(--mono);font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);font-weight:600}
+  td:first-child,th:first-child{text-align:left}
+  td.first{font-family:var(--serif)}
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .win{color:var(--good);font-weight:700} .lose{color:var(--hidden);font-weight:700}
+  .pill{font-family:var(--mono);font-size:.72rem;padding:.16rem .55rem;border-radius:100px;white-space:nowrap}
+  .pill.g{background:var(--good-bg);color:var(--good)}
+  .pill.h{background:var(--hidden-bg);color:var(--hidden)}
+  .pill.a{background:var(--accent-bg);color:var(--accent)}
+  .tbl-scroll{overflow-x:auto}
+  .grad{height:32px;border-radius:8px;margin:1rem 0 .3rem;
+    background:linear-gradient(90deg,var(--visible),#8a8f7a 48%,var(--hidden))}
+  .grad-lbl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:.76rem;color:var(--muted)}
+  .bar-row{display:grid;grid-template-columns:150px 1fr 62px;gap:.7rem;align-items:center;margin:.4rem 0}
+  @media(max-width:560px){.bar-row{grid-template-columns:104px 1fr 58px}}
+  .bar-row .nm{font-family:var(--mono);font-size:.78rem;color:var(--ink-soft);text-align:right}
+  .track{background:var(--surface-2);border-radius:4px;height:20px;overflow:hidden;border:1px solid var(--line)}
+  .fill{height:100%}
+  .fill.v{background:var(--visible)} .fill.h{background:var(--hidden)}
+  .fill.f{background:var(--accent)} .fill.g{background:var(--muted)}
+  .val{font-family:var(--mono);font-size:.82rem;font-variant-numeric:tabular-nums;text-align:right;color:var(--ink)}
+  .legend{display:flex;flex-wrap:wrap;gap:1rem;margin:.4rem 0 .8rem;font-size:.8rem;font-family:var(--mono);color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:.4rem}
+  .sw{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .sw.v{background:var(--visible)}.sw.h{background:var(--hidden)}.sw.f{background:var(--accent)}.sw.g{background:var(--muted)}
+  .mirror{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:1rem}
+  @media(max-width:760px){.mirror{grid-template-columns:1fr}}
+  .mcol{border:1px solid var(--line);border-radius:12px;padding:1rem;background:var(--surface-2)}
+  .mcol h4{margin:0 0 .2rem;font-family:var(--serif);font-size:1.02rem;color:var(--ink)}
+  .mcol .binlbl{font-family:var(--mono);font-size:.72rem;color:var(--muted);margin:.8rem 0 .3rem;
+    display:flex;align-items:center;gap:.4rem}
+  .dot{width:8px;height:8px;border-radius:50%}
+  .dot.v{background:var(--visible)}.dot.h{background:var(--hidden)}
+  .mbar{display:grid;grid-template-columns:64px 1fr 40px;gap:.5rem;align-items:center;margin:.25rem 0}
+  .mbar .mn{font-family:var(--mono);font-size:.72rem;color:var(--muted);text-align:right}
+  .callout{border:1px solid var(--accent);background:var(--accent-bg);border-radius:12px;
+    padding:1.1rem 1.3rem;margin:1.4rem 0}
+  .callout .k{font-family:var(--mono);font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--accent);margin:0 0 .3rem}
+  .honest{background:var(--hidden-bg);border-radius:12px;padding:1.1rem 1.3rem;margin:1.4rem 0}
+  .honest .k{font-family:var(--mono);font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--hidden);margin:0 0 .3rem}
+  .known{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1.2rem 0}
+  @media(max-width:700px){.known{grid-template-columns:1fr}}
+  .known .col{border:1px solid var(--line);border-radius:12px;padding:1.1rem;background:var(--surface)}
+  .known .col.ours{border-color:var(--good)}
+  .known h4{font-family:var(--mono);font-size:.74rem;letter-spacing:.12em;text-transform:uppercase;
+    margin:0 0 .6rem}
+  .known .col h4{color:var(--muted)} .known .col.ours h4{color:var(--good)}
+  .known li{font-size:.93rem;margin:.35rem 0}
+  strong{color:var(--ink)}
+  footer{border-top:1px solid var(--line);margin-top:3rem;padding-top:1.4rem;color:var(--muted);font-size:.85rem}
+  @media (prefers-reduced-motion:no-preference){
+    .flow{stroke-dasharray:5 6;animation:dash 1.4s linear infinite}
+    @keyframes dash{to{stroke-dashoffset:-22}}
+  }
+</style>
+
+<div class="wrap">
+<header>
+  <p class="eyebrow">研究解説 · Hidden Hop · 2026-07</p>
+  <h1>「質問に映らない文書」をどう見つけるか<br>
+  <span style="font-size:.62em;color:var(--muted);font-weight:400">— マルチホップ検索の失敗の解剖と、LLMを使わない処方 —</span></h1>
+  <p class="lede">複数の文書をたどらないと答えられない質問（マルチホップ質問）で、RAGの検索はしばしば失敗する。
+  この研究は、その失敗の<strong>原因を測れるようにし</strong>（診断）、<strong>なぜ既存手法が伸び悩むのかの機序を特定し</strong>（解剖）、
+  <strong>LLM呼び出しゼロ・追加学習ゼロの検索法</strong>で、LLMを使う代表手法と同等以上の精度に到達した（処方）。
+  このページは前提知識なしで読めるように、その全体を解説する。</p>
+</header>
+
+<!-- ================================================================ -->
+<section>
+  <p class="kicker">§0 全体像</p>
+  <h2>この研究は、何をしたのか</h2>
+  <p class="measure">一文でいうと——<strong>「マルチホップ質問でRAG検索が失敗する本当の原因を、
+  測定器を自作して突き止め、その原因分析から LLM 不要の検索法を組み立て、
+  LLM を使う代表手法と同等以上であることまで検証した」</strong>。
+  やったことは次の4ステップで、後の章はこの順に詳しく説明する:</p>
+  <div class="card" style="padding:0;overflow:hidden">
+    <div style="display:grid;grid-template-columns:52px 1fr;gap:1rem;padding:1.1rem 1.3rem;border-bottom:1px solid var(--line);align-items:start">
+      <div style="font-family:var(--serif);font-size:1.7rem;color:var(--accent);font-weight:600;line-height:1.1">1</div>
+      <div>
+        <p style="margin:0;font-weight:600;color:var(--ink)">測った — 失敗の場所を特定（§3–4）</p>
+        <p style="margin:.25rem 0 0;font-size:.95rem">正解文書の「質問からの見えなさ」を数値化する指標
+        （<strong>hiddenness</strong>）を自作し、3つの標準ベンチマーク・数千問の失敗を層別。
+        結果、失敗は「50件から5件を選ぶ段階」ではなく<strong>「数万から50件に絞る候補集めの段階」に集中</strong>し、
+        深く隠れた文書では GPT-4o に選ばせても 0% であることを突き止めた。</p>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:52px 1fr;gap:1rem;padding:1.1rem 1.3rem;border-bottom:1px solid var(--line);align-items:start">
+      <div style="font-family:var(--serif);font-size:1.7rem;color:var(--accent);font-weight:600;line-height:1.1">2</div>
+      <div>
+        <p style="margin:0;font-weight:600;color:var(--ink)">説明した — グラフ検索が隠れ文書に届く機序を解明（§5–6）</p>
+        <p style="margin:.25rem 0 0;font-size:.95rem">隠れた文書に届きうる唯一の安価な道具「グラフ検索（PPR）」を分解し、
+        <strong>「水をどこに注ぐか（種の設計）」で性能が正反対になる</strong>ことを実験で特定。
+        キーワード検索上位の文書を種にすると構造上1件も新文書を連れてこられない（実測100%一致）一方、
+        固有名詞を種にすると橋づたいに隠れ文書へ届く——だから固有名詞グラフ検索は、
+        キーワード検索と<strong>得意分野が直交する独立の道具</strong>だと分かった（この直交性が§7の融合の根拠になる）。</p>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:52px 1fr;gap:1rem;padding:1.1rem 1.3rem;border-bottom:1px solid var(--line);align-items:start">
+      <div style="font-family:var(--serif);font-size:1.7rem;color:var(--accent);font-weight:600;line-height:1.1">3</div>
+      <div>
+        <p style="margin:0;font-weight:600;color:var(--ink)">組んだ — 診断から検索法を構成（§7）</p>
+        <p style="margin:.25rem 0 0;font-size:.95rem">1と2の知見「キーワード検索とグラフ検索は得意分野が正反対（鏡像）」から、
+        <strong>候補は両者の合体（融合プール）、5件への絞り込みは『良い方の順位で採用』（min-rank）</strong>という、
+        調整パラメータなし・LLM不使用・追加学習なしの検索法を組み立てた。</p>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:52px 1fr;gap:1rem;padding:1.1rem 1.3rem;align-items:start">
+      <div style="font-family:var(--serif);font-size:1.7rem;color:var(--accent);font-weight:600;line-height:1.1">4</div>
+      <div>
+        <p style="margin:0;font-weight:600;color:var(--ink)">検証した — 効果と限界を測定（§8–10）</p>
+        <p style="margin:.25rem 0 0;font-size:.95rem">①最新LLMに渡す候補を差し替えるだけで回答品質が最大<strong>+34.7pt</strong>
+        （＝候補集めがボトルネックの直接実証）。②検索精度は、LLMでグラフを作る代表手法 <strong>HippoRAG と
+        同一コーパスで3データ中2つ同等以上</strong>（LLMゼロで）。③限界も測定——グラフの到達力は
+        1ホップごとに幾何級数で減衰し、4ホップに壁がある。</p>
+      </div>
+    </div>
+  </div>
+  <p class="measure" style="font-size:.95rem;color:var(--muted)">研究の型としては
+  <strong>診断（測る）→ 機序（説明する）→ 処方（組む）→ 検証（測り直す）</strong>の一本線。
+  新規性は主に1・2・4の「測る・説明する」の層にあり（§11で先行研究と正確に区別する）、
+  3のシステムはその帰結として公表手法級の性能を出す。</p>
+</section>
+
+<!-- ================================================================ -->
+<section>
+  <p class="kicker">§1 前提知識</p>
+  <h2>RAGの検索は2段階でできている</h2>
+  <div class="qa">
+    <p class="q">RAG とは？</p>
+    <p>LLM（ChatGPTのようなAI）に答えさせる前に、関連文書を<strong>検索して渡す</strong>仕組み
+    （Retrieval-Augmented Generation）。LLMは渡された文書の中からしか確実な答えを作れない。
+    つまり<strong>検索の質が、回答の質の上限を決める</strong>。</p>
+  </div>
+  <div class="qa">
+    <p class="q">検索の中身は？</p>
+    <p>典型的には2段階。<strong>①候補集め</strong>: 数万の文書から、ざっくり関連しそうな50件程度に絞る。
+    <strong>②選択</strong>: その50件から、LLMに渡す最終5件を選ぶ。
+    本研究の中心的な問いは「<strong>マルチホップ質問の失敗は、①と②のどちらで起きているのか</strong>」。</p>
+  </div>
+  <div class="qa">
+    <p class="q">マルチホップ質問とは？</p>
+    <p>複数の文書を順にたどらないと答えられない質問。例:
+    「<em>曲 Changed It の歌手の出身地は？</em>」——
+    ①曲のページで「歌手は Nicki Minaj」を知り（1ホップ目）、
+    ②Nicki Minaj のページで出身地を知る（2ホップ目）。
+    <strong>両方の文書が揃って初めて</strong>答えられる。だから本研究の主指標は
+    「<strong>全部の正解文書が最終5件に揃った質問の割合</strong>」（AllGoldHit@5、全か無か）を使う。</p>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section>
+  <p class="kicker">§2 問題</p>
+  <h2>Hidden Hop — 2ホップ目は質問に映らない</h2>
+  <p class="measure">1ホップ目の文書は取りやすい。質問に「Changed It」と書いてあるから、
+  キーワード検索（BM25）でも意味検索（埋め込み）でも上位に来る。
+  問題は<strong>2ホップ目</strong>。Nicki Minaj のページには、
+  質問の言葉が<strong>1つも出てこない</strong>（質問には曲名しかない）。</p>
+  <figure class="fig">
+    <svg viewBox="0 0 760 250" role="img" aria-label="Hidden Hopの説明図">
+      <rect x="15" y="100" width="160" height="56" rx="9" fill="var(--accent-bg)" stroke="var(--accent)"/>
+      <text x="95" y="124" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--ink)">質問</text>
+      <text x="95" y="142" text-anchor="middle" font-size="10" fill="var(--muted)">「Changed It の歌手の出身地は？」</text>
+      <line x1="175" y1="128" x2="290" y2="128" stroke="var(--visible)" stroke-width="2.5"/>
+      <text x="232" y="119" text-anchor="middle" font-size="9.5" fill="var(--visible)">言葉が一致 ○</text>
+      <rect x="290" y="92" width="180" height="72" rx="9" fill="var(--visible-bg)" stroke="var(--visible)"/>
+      <text x="380" y="116" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--ink)">文書① 曲のページ</text>
+      <text x="380" y="134" text-anchor="middle" font-size="10" fill="var(--visible)">「歌手は Nicki Minaj」</text>
+      <text x="380" y="151" text-anchor="middle" font-size="10" fill="var(--muted)">検索順位: 上位 ✓（可視）</text>
+      <line x1="470" y1="128" x2="560" y2="128" stroke="var(--ink)" stroke-width="1.5"/>
+      <text x="515" y="119" text-anchor="middle" font-size="9.5" fill="var(--muted)">人名がつなぐ</text>
+      <rect x="560" y="92" width="185" height="72" rx="9" fill="var(--hidden-bg)" stroke="var(--hidden)"/>
+      <text x="652" y="116" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--ink)">文書② 歌手のページ</text>
+      <text x="652" y="134" text-anchor="middle" font-size="10" fill="var(--hidden)">質問の言葉がゼロ</text>
+      <text x="652" y="151" text-anchor="middle" font-size="10" fill="var(--hidden)">検索順位: 2403位 ✗（隠れ）</text>
+      <path d="M95 156 Q 380 240 652 164" fill="none" stroke="var(--hidden)" stroke-width="1.5" stroke-dasharray="3 5" opacity=".6"/>
+      <text x="380" y="232" text-anchor="middle" font-size="10" fill="var(--hidden)">質問からは語彙的にも意味的にも届かない ＝ Hidden Hop（隠れホップ）</text>
+    </svg>
+    <figcaption>実測例。2ホップ目の正解文書はキーワード検索で2403位——「関連文書50件」に絶対に入らない。</figcaption>
+  </figure>
+  <p class="measure">この「質問と似ていない正解文書」を本研究では <strong>Hidden Hop（隠れホップ）</strong>と呼ぶ。
+  存在自体は近年の研究でも観察されていた（「橋渡し質問が最も難しい」等）。
+  本研究が新しくやったのは、これを<strong>測れる量にした</strong>ことと、
+  そこから<strong>失敗の機序と処方を導いた</strong>ことである。以下、順に見る。</p>
+</section>
+
+<!-- ================================================================ -->
+<section>
+  <p class="kicker">§3 新規性 その1 — 計器</p>
+  <h2>「隠れ度」を連続値で測る hiddenness 指標</h2>
+  <p class="measure">まず、正解文書がどれだけ「質問から見えないか」を数値化する物差しを定義した。
+  発想は単純で、<strong>2種類の検索（キーワード・意味）の両方から見て、コーパス全体の中で
+  どのくらい下位に沈んでいるか</strong>を測る。</p>
+  <div class="formula">
+    hidden(g) = 1 − ½ · ( <span class="vtok">P<sub>意味</sub>(g)</span> + <span class="htok">P<sub>語彙</sub>(g)</span> )
+    <br><span style="color:var(--muted);font-size:.85em">
+    P(g) = 正解文書 g の順位パーセンタイル（コーパス全文書中、g より下位の割合）<br>
+    P<sub>意味</sub> = 埋め込み類似度による順位、P<sub>語彙</sub> = BM25 スコアによる順位<br>
+    質問単位では hidden(q) = max（最も隠れた正解が全体を律速するため）</span>
+  </div>
+  <div class="grad"></div>
+  <div class="grad-lbl"><span>hidden ≈ 0 可視（質問に似ている）</span><span>隠れ（橋の先） hidden ≈ 1</span></div>
+  <p class="measure" style="margin-top:1.2rem">設計のポイント: ①<strong>両方の検索を使う</strong>——片方だけでは
+  「意味は似てないが単語は被る」ケースを取り逃す。②<strong>生スコアでなくパーセンタイル</strong>——
+  スケールの違う2信号を[0,1]で公平に平均できる。③<strong>連続値</strong>——先行研究にも
+  「2ホップ目のエンティティが質問に出るか否か」という<em>二値</em>の分類は存在したが、
+  連続の物差しにしたことで「どのくらい隠れているとどの手法が死ぬか」という<strong>層別分析</strong>が可能になった。</p>
+</section>
+
+<!-- ================================================================ -->
+<section>
+  <p class="kicker">§4 診断</p>
+  <h2>失敗は「選択」でなく「候補集め」で起きている</h2>
+  <p class="measure">この物差しで質問を4グループに分け、様々な手法の成績を層別した。</p>
+  <div class="card">
+    <p style="font-family:var(--mono);font-size:.74rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin:0 0 .5rem">4グループの定義</p>
+    <ol style="margin:.2rem 0;padding-left:1.3rem;font-size:.95rem">
+      <li><strong>質問ごとの隠れ度を1つに集約</strong>:
+        <span style="font-family:var(--mono);font-size:.9em">hidden(q) = max<sub>g∈gold</sub> hidden(g)</span>
+        ——その質問の正解文書のうち<strong>最も隠れた1件</strong>の値を採る
+        （全正解が揃うかは一番取りにくい1件で決まるため）。</li>
+      <li><strong>データセット内で hidden(q) の昇順に並べ、25%ずつ4等分</strong>（四分位）。
+        浅い方から「可視」「やや隠れ」「隠れ」「深く隠れ」と呼ぶ。固定閾値ではなく相対分割。</li>
+    </ol>
+    <p style="margin:.6rem 0 0;font-size:.88rem;color:var(--muted)">実際の境界値（2Wiki・1000問の場合）:
+      可視 = 0.00 ／ やや隠れ 0.00–0.03 ／ 隠れ 0.03–0.24 ／ 深く隠れ 0.24–0.93（各250問前後）。
+      「深く隠れ」は、最難の正解文書がコーパス全体の下位7割超に沈んでいる質問群を意味する。
+      境界値はデータセットごとに変わる（例: MuSiQue の深隠れは 0.24–0.95）。</p>
+  </div>
+  <p class="measure">層別すると、全手法が<strong>同じ崖</strong>から落ちる：</p>
+  <div class="card">
+    <p style="font-family:var(--mono);font-size:.78rem;color:var(--muted);margin:0 0 .6rem">
+      2Wiki・隠れ度別の正答率（AllGoldHit@5）。選択器を強くしても崖は消えない:</p>
+    <div class="tbl-scroll"><table>
+      <thead><tr><th>隠れ度</th><th>キーワード検索</th><th>小型AI再選択</th><th>GPT-4oに選ばせる</th></tr></thead>
+      <tbody>
+        <tr><td class="first">可視</td><td class="num">85%</td><td class="num">100%</td><td class="num">91%</td></tr>
+        <tr><td class="first">やや隠れ</td><td class="num">47%</td><td class="num">64%</td><td class="num">75%</td></tr>
+        <tr><td class="first">隠れ</td><td class="num">9%</td><td class="num">11%</td><td class="num">15%</td></tr>
+        <tr><td class="first"><strong>深く隠れ</strong></td><td class="num lose">0%</td><td class="num lose">0%</td><td class="num lose"><strong>0%</strong></td></tr>
+      </tbody>
+    </table></div>
+    <p style="margin:.6rem 0 0"><strong>深く隠れた文書では、GPT-4o に選ばせても 0%。</strong>
+    原因を調べると、正解文書が<strong>候補50件にそもそも入っていなかった</strong>。
+    どんなに賢い選択器も、候補に無いものは選べない。</p>
+  </div>
+  <div class="callout">
+    <p class="k">診断の結論</p>
+    <p style="margin:0">マルチホップ検索のボトルネックは、50件から5件を選ぶ「選択」ではなく、
+    数万から50件に絞る<strong>「候補集め」</strong>にある。研究の照準をここに合わせる。</p>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section>
+  <p class="kicker">§5 道具 — 既存技術の説明</p>
+  <h2>グラフ検索：文書の地図の上で「水」を流す</h2>
+  <p class="measure">Hidden Hop に候補集めの段階で届きうる唯一の安価な道具が<strong>グラフ検索</strong>。
+  これは既存技術（HippoRAG, NeurIPS 2024 などで確立）で、次の2部品からなる:</p>
+  <div class="qa">
+    <p class="q">部品1: 文書と固有名詞の地図（二部グラフ）</p>
+    <p>全文書から固有名詞（人名・曲名・地名…）を抽出し、
+    「<strong>その文書がその固有名詞に言及していたら線を引く</strong>」だけの地図を作る。
+    文書同士は直接つながらず、必ず固有名詞を経由する:
+    <span style="font-family:var(--mono);font-size:.9em">[文書] ─ [固有名詞] ─ [文書]</span></p>
+  </div>
+  <div class="qa">
+    <p class="q">部品2: PPR（水を染み出させる計算）</p>
+    <p>地図のどこか（<strong>種</strong>と呼ぶ）に水を注ぐと、線を伝って染み出していく。
+    ただし毎ステップ一定割合が種に戻るので、遠いほど水は薄い。
+    最終的に「どの文書が濡れたか」の順で文書を並べる。数式では:</p>
+  </div>
+  <div class="formula">
+    <span class="atok">x</span><sup>(t+1)</sup> = (1−d)·<span class="atok">r</span> + d·<span class="atok">W·x</span><sup>(t)</sup>
+    &nbsp;&nbsp;<span style="color:var(--muted)">（r=種、W=地図上の水の流れ方、d=0.5）</span>
+    <br><span style="color:var(--muted);font-size:.85em">
+    展開すると x ≈ (1−d)r + d(1−d)<span class="atok">Wr</span> + d²(1−d)<span class="atok">W²r</span> + …
+    ——<span class="atok">Wᵏr</span> の項が「kホップ先」に対応し、dᵏ で減衰しながら橋を渡る</span>
+  </div>
+  <p class="measure">「Changed It」に水を注げば、曲のページ（1歩）→ ページ内の「Nicki Minaj」→
+  歌手のページ（2歩）と、<strong>質問と似ていなくても橋づたいに届く</strong>。
+  ——ここまでは既存技術。<strong>問題は、この水の力を既存手法が活かせていなかった</strong>ことだった。</p>
+</section>
+
+<!-- ================================================================ -->
+<section>
+  <p class="kicker">§6 新規性 その2 — 機序の解明</p>
+  <h2>「水をどこに注ぐか」が全てを決めていた</h2>
+  <p class="measure">グラフ検索の性能は種（水の注ぎ場所）の設計で大きく変わる。
+  本研究は2つの注ぎ方を分離して比較し、<strong>隠れ文書に届くには固有名詞を種にする必要がある</strong>
+  ことを機序ごと特定した:</p>
+  <figure class="fig">
+    <svg viewBox="0 0 760 320" role="img" aria-label="種の設計3パターン">
+      <line x1="380" y1="30" x2="380" y2="290" stroke="var(--line)" stroke-width="1"/>
+      <text x="190" y="26" text-anchor="middle" font-size="13" font-weight="600" fill="var(--visible)">A. 固有名詞に注ぐ → 橋を渡って届く</text>
+      <text x="570" y="26" text-anchor="middle" font-size="13" font-weight="600" fill="var(--hidden)">B. 文書に注ぐ → その場から動けない</text>
+      <circle cx="70" cy="160" r="20" fill="var(--accent)"/>
+      <text x="70" y="164" text-anchor="middle" font-size="10" fill="#fff" font-weight="700">種</text>
+      <text x="70" y="200" text-anchor="middle" font-size="9" fill="var(--muted)">質問の固有名詞</text>
+      <rect x="150" y="95" width="70" height="30" rx="6" fill="var(--visible-bg)" stroke="var(--visible)"/>
+      <rect x="150" y="148" width="70" height="30" rx="6" fill="var(--visible-bg)" stroke="var(--visible)"/>
+      <text x="185" y="114" text-anchor="middle" font-size="9" fill="var(--visible)">文書(1歩)</text>
+      <text x="185" y="167" text-anchor="middle" font-size="9" fill="var(--visible)">文書(1歩)</text>
+      <circle cx="268" cy="132" r="15" fill="var(--surface)" stroke="var(--ink)"/>
+      <text x="268" y="136" text-anchor="middle" font-size="8" fill="var(--ink)">橋</text>
+      <rect x="296" y="200" width="76" height="32" rx="6" fill="var(--hidden-bg)" stroke="var(--hidden)"/>
+      <text x="334" y="216" text-anchor="middle" font-size="9" fill="var(--hidden)">隠れ文書</text>
+      <text x="334" y="228" text-anchor="middle" font-size="8" fill="var(--hidden)">(2歩で到達)</text>
+      <line class="flow" x1="90" y1="153" x2="150" y2="112" stroke="var(--accent)" stroke-width="2"/>
+      <line class="flow" x1="90" y1="167" x2="150" y2="161" stroke="var(--accent)" stroke-width="2"/>
+      <line class="flow" x1="220" y1="160" x2="254" y2="138" stroke="var(--accent)" stroke-width="2"/>
+      <line class="flow" x1="276" y1="146" x2="308" y2="200" stroke="var(--accent)" stroke-width="2"/>
+      <rect x="440" y="145" width="80" height="32" rx="6" fill="var(--accent)"/>
+      <text x="480" y="165" text-anchor="middle" font-size="10" fill="#fff" font-weight="700">種（文書50件）</text>
+      <circle cx="480" cy="161" r="48" fill="none" stroke="var(--hidden)" stroke-width="1.2" stroke-dasharray="3 4" opacity=".55"/>
+      <rect x="640" y="145" width="76" height="32" rx="6" fill="var(--surface-2)" stroke="var(--line)"/>
+      <text x="678" y="165" text-anchor="middle" font-size="9" fill="var(--muted)">別の文書</text>
+      <path d="M530 161 L632 161" stroke="var(--muted)" stroke-width="1.4" stroke-dasharray="2 5" opacity=".5"/>
+      <text x="580" y="152" text-anchor="middle" font-size="14" fill="var(--hidden)">✕</text>
+      <text x="578" y="250" text-anchor="middle" font-size="9.5" fill="var(--hidden)">水は種の周りに留まる：上位50件＝種と100%一致（実測）</text>
+      <text x="240" y="285" text-anchor="middle" font-size="9.5" fill="var(--visible)">キーワード検索2403位の文書がPPRで3位に（実測・経路確認済み）</text>
+    </svg>
+    <figcaption>同じ地図・同じ計算でも、種の置き場所で結果が正反対になる。</figcaption>
+  </figure>
+  <div class="card">
+    <p style="margin:.2rem 0"><strong>A. 固有名詞に注ぐ</strong> — 水は文書→固有名詞→文書と橋を渡り、
+    2ホップ先の隠れ文書に届く。実測: キーワード検索2403位の文書がPPRで3位。</p>
+    <p style="margin:.6rem 0"><strong>B. 文書に注ぐ</strong>（検索上位の文書を種にする流儀）—
+    水は毎ステップ種に引き戻されるため、種の文書群からほぼ出られない。
+    実測: <strong>PPR後の上位50件が種の50件と100%一致</strong>＝並べ替えるだけで、新しい文書を1件も
+    連れてこられない（減衰率 d=0.5 のとき）。</p>
+  </div>
+  <h3>なぜ「注ぎ場所」でこんなに差が出るのか</h3>
+  <p class="measure">直感的には「文書に注いでも、2歩流れれば隣の文書に届くのでは？」と思える。
+  実際、水は届いている。<strong>問題は届く量ではなく、順位表の公平性</strong>にある。
+  思い出してほしいのは、PPRの出力が「文書の濡れ具合ランキング」であることと、
+  式の第1項 (1−d)·r が「<strong>毎ステップ、水の半分を種に直接注ぎ直す</strong>」ことの2点:</p>
+  <div class="card">
+    <p style="margin:.2rem 0"><strong>文書に注ぐと、種が順位表を占拠する。</strong>
+    種の50文書は毎ステップ<strong>蛇口直結</strong>で給水される（第1項）。他の文書に届く水は、
+    種の文書→数十個の固有名詞に分割→大半は「アメリカ」級のハブ名詞→さらに数千文書に分割…と
+    目減りした<strong>滴</strong>だけ（第2項）。滴が蛇口直結を追い越すことは構造的にできず、
+    順位表の上位50は永遠に種の50件のまま——実測の「上位50件＝種と100%一致」はこれ。
+    例えるなら、<strong>50人の走者をゴール地点からスタートさせてレースをする</strong>ようなもの。</p>
+    <p style="margin:.7rem 0 0"><strong>固有名詞に注ぐと、全文書が公平に競争する。</strong>
+    種は固有名詞であって<strong>順位表の参加者（文書）ではない</strong>。蛇口直結の特権者がいないので、
+    全文書が「流れてきた水」だけで競い、順位は純粋に<strong>種の名前から橋づたいに何歩か</strong>で決まる。
+    3歩先の隠れ文書（Nicki Minaj のページ）でも、上に居座る特権者がいないから3位に入れる。
+    しかも質問の固有名詞（「Changed It」）は言及文書が1〜2件と<strong>レア</strong>なので、
+    水がほぼ全量正しい文書に流れる——文書種の「数十に分散」と逆の効き方をする。</p>
+    <p style="margin:.7rem 0 0;font-size:.95rem;color:var(--muted)">一言でいうと:
+    文書に注ぐ＝「この50件を<strong>並べ替えて</strong>」という質問（新入りは入れない）。
+    固有名詞に注ぐ＝「この名前に<strong>近い文書はどれ？</strong>」という質問（隠れ文書が浮上できる）。
+    届く距離の差ではなく、順位表の公平性の差。</p>
+  </div>
+  <figure class="fig">
+    <svg viewBox="0 0 760 360" role="img" aria-label="順位表の占拠と公平競争の対比">
+      <line x1="380" y1="34" x2="380" y2="330" stroke="var(--line)" stroke-width="1"/>
+      <text x="188" y="24" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--hidden)">B. 文書に注ぐ → 種が順位表を占拠</text>
+      <text x="574" y="24" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--visible)">A. 固有名詞に注ぐ → 隠れ文書が浮上</text>
+
+      <!-- ===== Panel B: document-seeded ===== -->
+      <!-- water source (documents) -->
+      <rect x="18" y="92" width="84" height="52" rx="8" fill="var(--accent)"/>
+      <text x="60" y="114" text-anchor="middle" font-size="10" fill="#fff" font-weight="700">種</text>
+      <text x="60" y="130" text-anchor="middle" font-size="8.5" fill="#fff">文書50件</text>
+      <!-- ranking header -->
+      <text x="245" y="46" text-anchor="middle" font-size="9" fill="var(--muted)">順位表（濡れ具合）</text>
+      <!-- seed rows occupying the top -->
+      <rect x="170" y="52" width="150" height="21" rx="4" fill="var(--accent-bg)" stroke="var(--accent)"/>
+      <text x="245" y="66" text-anchor="middle" font-size="9" fill="var(--ink)">1位 ・ 種の文書</text>
+      <rect x="170" y="79" width="150" height="21" rx="4" fill="var(--accent-bg)" stroke="var(--accent)"/>
+      <text x="245" y="93" text-anchor="middle" font-size="9" fill="var(--ink)">2位 ・ 種の文書</text>
+      <rect x="170" y="106" width="150" height="21" rx="4" fill="var(--accent-bg)" stroke="var(--accent)"/>
+      <text x="245" y="120" text-anchor="middle" font-size="9" fill="var(--ink)">3位 ・ 種の文書</text>
+      <text x="245" y="141" text-anchor="middle" font-size="9" fill="var(--muted)">⋮　50位まで全部が種</text>
+      <line x1="170" y1="150" x2="320" y2="150" stroke="var(--hidden)" stroke-width="1" stroke-dasharray="4 3"/>
+      <text x="335" y="153" text-anchor="start" font-size="8" fill="var(--hidden)">50位</text>
+      <!-- hidden doc out of range -->
+      <rect x="170" y="176" width="150" height="21" rx="4" fill="var(--hidden-bg)" stroke="var(--hidden)" stroke-dasharray="3 3"/>
+      <text x="245" y="190" text-anchor="middle" font-size="9" fill="var(--hidden)">隠れ文書 … 圏外（候補50件に入れない）</text>
+      <!-- faucet hoses: thick solid = direct feed -->
+      <line x1="102" y1="108" x2="170" y2="62" stroke="var(--accent)" stroke-width="3"/>
+      <line x1="102" y1="115" x2="170" y2="89" stroke="var(--accent)" stroke-width="3"/>
+      <line x1="102" y1="122" x2="170" y2="116" stroke="var(--accent)" stroke-width="3"/>
+      <text x="118" y="152" text-anchor="start" font-size="8" fill="var(--accent)">蛇口直結</text>
+      <text x="118" y="163" text-anchor="start" font-size="8" fill="var(--accent)">(毎ステップ給水)</text>
+      <!-- drip to hidden -->
+      <path d="M100 138 Q 130 190 170 187" fill="none" stroke="var(--muted)" stroke-width="1" stroke-dasharray="2 4"/>
+      <text x="120" y="205" text-anchor="start" font-size="8" fill="var(--muted)">届くのは滴だけ</text>
+      <text x="190" y="238" text-anchor="middle" font-size="9" fill="var(--hidden)" font-weight="600">上位50件 ＝ 種と100%一致（実測）</text>
+      <text x="190" y="252" text-anchor="middle" font-size="8.5" fill="var(--muted)">＝「この50件を並べ替えて」という質問。新入りは入れない</text>
+      <!-- runner metaphor -->
+      <text x="190" y="290" text-anchor="middle" font-size="8.5" fill="var(--muted)">たとえ: 50人の走者を</text>
+      <text x="190" y="303" text-anchor="middle" font-size="8.5" fill="var(--muted)">ゴール地点からスタートさせるレース</text>
+
+      <!-- ===== Panel A: entity-seeded ===== -->
+      <!-- entity seed OUTSIDE the ranking -->
+      <circle cx="440" cy="92" r="21" fill="var(--accent)"/>
+      <text x="440" y="96" text-anchor="middle" font-size="9.5" fill="#fff" font-weight="700">種</text>
+      <text x="440" y="126" text-anchor="middle" font-size="8.5" fill="var(--muted)">固有名詞（レア）</text>
+      <text x="440" y="138" text-anchor="middle" font-size="8" fill="var(--muted)">＝順位表の外</text>
+      <!-- ranking rows, all flow-fed -->
+      <text x="628" y="46" text-anchor="middle" font-size="9" fill="var(--muted)">順位表（濡れ具合）</text>
+      <rect x="555" y="52" width="150" height="21" rx="4" fill="var(--visible-bg)" stroke="var(--visible)"/>
+      <text x="630" y="66" text-anchor="middle" font-size="9" fill="var(--ink)">1位 ・ 曲のページ</text>
+      <rect x="555" y="79" width="150" height="21" rx="4" fill="var(--surface-2)" stroke="var(--line)"/>
+      <text x="630" y="93" text-anchor="middle" font-size="9" fill="var(--muted)">2位 ・ 別の文書</text>
+      <rect x="555" y="106" width="150" height="21" rx="4" fill="var(--hidden-bg)" stroke="var(--hidden)"/>
+      <text x="630" y="120" text-anchor="middle" font-size="9" fill="var(--hidden)" font-weight="600">3位 ・ 隠れ文書 ← 浮上！</text>
+      <rect x="555" y="133" width="150" height="21" rx="4" fill="var(--surface-2)" stroke="var(--line)"/>
+      <text x="630" y="147" text-anchor="middle" font-size="9" fill="var(--muted)">4位 ・ …</text>
+      <!-- flows: no direct hose, water arrives via graph -->
+      <path class="flow" d="M461 88 Q 520 60 555 62" fill="none" stroke="var(--accent)" stroke-width="2"/>
+      <path class="flow" d="M461 96 Q 520 116 555 116" fill="none" stroke="var(--accent)" stroke-width="2"/>
+      <path class="flow" d="M461 100 Q 515 140 555 143" fill="none" stroke="var(--accent)" stroke-width="2"/>
+      <text x="500" y="175" text-anchor="middle" font-size="8" fill="var(--accent)">橋づたいに流れて到達（蛇口直結なし）</text>
+      <text x="600" y="238" text-anchor="middle" font-size="9" fill="var(--visible)" font-weight="600">特権者ゼロ → 全文書が流れだけで公平競争</text>
+      <text x="600" y="252" text-anchor="middle" font-size="8.5" fill="var(--muted)">＝「この名前に近い文書は？」という質問。隠れ文書が浮上できる</text>
+      <text x="600" y="290" text-anchor="middle" font-size="8.5" fill="var(--muted)">たとえ: 全員が同じスタートラインから走る</text>
+      <text x="600" y="303" text-anchor="middle" font-size="8.5" fill="var(--muted)">公平なレース（3歩先の走者も3位に入れる）</text>
+    </svg>
+    <figcaption>差は「水が届く距離」ではなく「順位表に蛇口直結の特権者がいるか」。文書種は上位を占拠して新文書を締め出し、固有名詞種は全文書を公平に競わせる。</figcaption>
+  </figure>
+  <p class="measure">つまり「グラフ検索が隠れ文書に届くか」は、<strong>種の置き場所（固有名詞か文書か）で決まる</strong>。
+  この機序の特定——とくに<strong>Bの「キーワード検索上位を種にする流儀は構造的に注入不能」</strong>という実測——は
+  本研究のオリジナルであり、固有名詞グラフ検索を「キーワード検索と直交する独立レジーム」として位置づける根拠になる。</p>
+</section>
+
+<!-- ================================================================ -->
+<section>
+  <p class="kicker">§7 法則と処方</p>
+  <h2>2つの検索は得意分野が正反対 — だから混ぜずに組む</h2>
+  <p class="measure">§3の物差しで層別すると、キーワード/意味検索と固有名詞グラフ検索は
+  <strong>綺麗な鏡像</strong>になる（数値は正解が候補50件に入る率、各1000問）:</p>
+  <div class="legend">
+    <span><i class="sw g"></i>キーワード検索(BM25)</span>
+    <span><i class="sw h"></i>固有名詞グラフ検索(PPR)</span>
+    <span><i class="sw f"></i>融合（本研究の処方）</span>
+  </div>
+  <div class="mirror">
+    <div class="mcol">
+      <h4>2Wiki</h4>
+      <div class="binlbl"><span class="dot v"></span>可視な質問</div>
+      <div class="mbar"><span class="mn">BM25</span><div class="track"><div class="fill g" style="width:100%"></div></div><span class="val">100</span></div>
+      <div class="mbar"><span class="mn">グラフ</span><div class="track"><div class="fill h" style="width:88%"></div></div><span class="val">88</span></div>
+      <div class="mbar"><span class="mn">融合</span><div class="track"><div class="fill f" style="width:100%"></div></div><span class="val">100</span></div>
+      <div class="binlbl"><span class="dot h"></span>深く隠れた質問</div>
+      <div class="mbar"><span class="mn">BM25</span><div class="track"><div class="fill g" style="width:1%"></div></div><span class="val">0</span></div>
+      <div class="mbar"><span class="mn">グラフ</span><div class="track"><div class="fill h" style="width:60%"></div></div><span class="val">60</span></div>
+      <div class="mbar"><span class="mn">融合</span><div class="track"><div class="fill f" style="width:60%"></div></div><span class="val">60</span></div>
+    </div>
+    <div class="mcol">
+      <h4>HotpotQA</h4>
+      <div class="binlbl"><span class="dot v"></span>可視な質問</div>
+      <div class="mbar"><span class="mn">BM25</span><div class="track"><div class="fill g" style="width:100%"></div></div><span class="val">100</span></div>
+      <div class="mbar"><span class="mn">グラフ</span><div class="track"><div class="fill h" style="width:75%"></div></div><span class="val">75</span></div>
+      <div class="mbar"><span class="mn">融合</span><div class="track"><div class="fill f" style="width:100%"></div></div><span class="val">100</span></div>
+      <div class="binlbl"><span class="dot h"></span>隠れた質問</div>
+      <div class="mbar"><span class="mn">BM25</span><div class="track"><div class="fill g" style="width:48%"></div></div><span class="val">48</span></div>
+      <div class="mbar"><span class="mn">グラフ</span><div class="track"><div class="fill h" style="width:68%"></div></div><span class="val">68</span></div>
+      <div class="mbar"><span class="mn">融合</span><div class="track"><div class="fill f" style="width:78%"></div></div><span class="val">78</span></div>
+    </div>
+    <div class="mcol">
+      <h4>MuSiQue（最難）</h4>
+      <div class="binlbl"><span class="dot v"></span>可視な質問</div>
+      <div class="mbar"><span class="mn">BM25</span><div class="track"><div class="fill g" style="width:90%"></div></div><span class="val">90</span></div>
+      <div class="mbar"><span class="mn">グラフ</span><div class="track"><div class="fill h" style="width:62%"></div></div><span class="val">62</span></div>
+      <div class="mbar"><span class="mn">融合</span><div class="track"><div class="fill f" style="width:99%"></div></div><span class="val">99</span></div>
+      <div class="binlbl"><span class="dot h"></span>深く隠れた質問</div>
+      <div class="mbar"><span class="mn">BM25</span><div class="track"><div class="fill g" style="width:1%"></div></div><span class="val">0</span></div>
+      <div class="mbar"><span class="mn">グラフ</span><div class="track"><div class="fill h" style="width:29%"></div></div><span class="val">29</span></div>
+      <div class="mbar"><span class="mn">融合</span><div class="track"><div class="fill f" style="width:32%"></div></div><span class="val">32</span></div>
+    </div>
+  </div>
+  <p class="measure" style="margin-top:1.2rem">処方は2つ、どちらも<strong>調整パラメータなし</strong>:</p>
+  <div class="card">
+    <p style="margin:.2rem 0"><strong>処方1（候補集め）: 融合プール</strong> —
+    キーワード検索の候補とグラフ検索の候補を<strong>単純に合体</strong>させる。
+    可視も隠れも取りこぼさず、全データセットで最良の候補集合になる（上図の「融合」）。</p>
+    <p style="margin:.6rem 0 0"><strong>処方2（選択）: min-rank 併合</strong> —
+    5件に絞るとき、2つの検索の<strong>順位を「足す」と隠れ文書が沈む</strong>
+    （片方でビリだと総合点が死ぬ）。代わりに「<strong>どちらか良い方の順位</strong>」で採用する。
+    これは古典手法 CombMAX（1994）の再発見だが、「棲み分けた2つのリストではSUMでなくMAXを使うべき」
+    という<strong>理由の説明</strong>が本研究の分析から初めて与えられる。実測: 順位和方式に最大+8.5pt。</p>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section>
+  <p class="kicker">§8 新規性 その3 — 候補の価値の定量</p>
+  <h2>同じLLMでも、渡す候補で回答品質が+35点変わる</h2>
+  <p class="measure">「候補集めがボトルネック」の決定的な検証。<strong>選択器を最新LLM
+  （GPT-5.4-mini）に固定</strong>し、渡す候補だけを「従来のキーワード検索」と「本研究の融合プール」で
+  差し替えた（各300問、全正解が最終5件に揃った率）:</p>
+  <div class="card">
+    <div class="bar-row"><span class="nm">2Wiki 従来候補</span><div class="track"><div class="fill g" style="width:43%"></div></div><span class="val">43.0</span></div>
+    <div class="bar-row"><span class="nm">2Wiki 本手法候補</span><div class="track"><div class="fill f" style="width:77.7%"></div></div><span class="val">77.7</span></div>
+    <div class="bar-row"><span class="nm">MuSiQue 従来候補</span><div class="track"><div class="fill g" style="width:16.3%"></div></div><span class="val">16.3</span></div>
+    <div class="bar-row"><span class="nm">MuSiQue 本手法候補</span><div class="track"><div class="fill f" style="width:29%"></div></div><span class="val">29.0</span></div>
+    <div class="bar-row"><span class="nm">Hotpot 従来候補</span><div class="track"><div class="fill g" style="width:76%"></div></div><span class="val">76.0</span></div>
+    <div class="bar-row"><span class="nm">Hotpot 本手法候補</span><div class="track"><div class="fill f" style="width:82.7%"></div></div><span class="val">82.7</span></div>
+  </div>
+  <p class="measure">改善幅は <strong>+34.7 / +12.7 / +6.7</strong>——そして、この並びは各データセットの
+  <strong>隠れ度の高い順</strong>と一致する。§3の物差しが「どこでどれだけ効くか」を予言している。
+  LLM側は一切変えていないので、<strong>「候補集めが上限を決める」ことの直接の実証</strong>であり、
+  この定量のしかた（同一の現行LLM選択器で候補だけ差し替え、隠れ度に紐づける）は先行研究に見当たらない。</p>
+</section>
+
+<!-- ================================================================ -->
+<section>
+  <p class="kicker">§9 新規性 その4 — 深さの限界の機序</p>
+  <h2>グラフの水は1ホップごとに幾何級数で薄まる</h2>
+  <p class="measure">「もっと深い質問（3ホップ・4ホップ）でも使えるのか？」に機序で答えるため、
+  MuSiQue の質問をホップ数で層別した。<strong>最も遠い正解文書がグラフ検索で何位に来るか</strong>（中央値）:</p>
+  <div class="card">
+    <div class="bar-row"><span class="nm">2ホップ質問</span><div class="track"><div class="fill v" style="width:2%"></div></div><span class="val">16位</span></div>
+    <div class="bar-row"><span class="nm">3ホップ質問</span><div class="track"><div class="fill h" style="width:14%"></div></div><span class="val">268位</span></div>
+    <div class="bar-row"><span class="nm">4ホップ質問</span><div class="track"><div class="fill h" style="width:100%"></div></div><span class="val">1893位</span></div>
+    <p style="margin:.6rem 0 0;font-size:.92rem;color:var(--muted)">1ホップ深くなるごとに順位が約16倍・7倍と
+    幾何級数的に後退——§5の式の dᵏ 減衰（1ホップごとに水が半減）がそのまま観測されている。</p>
+  </div>
+  <p class="measure">つまり本手法（および同系統のグラフ検索すべて）は<strong>2〜3ホップまでは有効、
+  4ホップに壁がある</strong>。限界を「実測＋数式の対応」で示せたこと自体が貢献で、
+  壁の越え方（途中結果からの再注水＝反復検索）も次の研究課題として自然に導かれる。</p>
+</section>
+
+<!-- ================================================================ -->
+<section>
+  <p class="kicker">§10 進歩性 — 公表手法との比較</p>
+  <h2>LLM不使用で、LLMを使う代表手法に並んだ</h2>
+  <p class="measure">最後に、診断から導いたシステム（融合プール＋min-rank、<strong>LLM完全不使用</strong>）の
+  検索精度を公表手法と比較する。最重要の比較相手は <strong>HippoRAG（NeurIPS 2024）</strong>——
+  知識グラフの構築に<strong>LLMを使う</strong>代表的手法で、<strong>本研究と同一の評価コーパス</strong>を使っているため
+  直接比較できる（指標 GoldRecall@5: 上位5件に入った正解文書の割合、各1000問）:</p>
+  <div class="tbl-scroll"><table>
+    <thead><tr><th>データセット</th><th>HippoRAG<br>（グラフ構築にLLM）</th><th>本手法<br>（LLM不使用）</th><th>判定</th></tr></thead>
+    <tbody>
+      <tr><td class="first">MuSiQue（最難）</td><td class="num">52.1</td><td class="num win">52.3</td><td><span class="pill g">同等</span></td></tr>
+      <tr><td class="first">HotpotQA</td><td class="num">76.2</td><td class="num win">79.5</td><td><span class="pill g">上回る</span></td></tr>
+      <tr><td class="first">2Wiki</td><td class="num win">89.5</td><td class="num">78.3</td><td><span class="pill h">負け</span></td></tr>
+    </tbody>
+  </table></div>
+  <p class="measure" style="font-size:.95rem">その他の比較: 同じLLM不使用クラスの最新手法
+  <strong>SPRIG</strong>（2026）を 2Wiki R@10 で <strong>87.0 vs 79.4</strong> と上回る。
+  グラフ×ベクトル融合の最新手法 <strong>Calibrated Fusion</strong>（2026）とは、
+  ほぼ同一のベースライン（本研究51.4 vs 彼ら51.7）から、改善幅 <strong>+25.0 vs +2.2</strong>。
+  2Wikiで HippoRAG に負ける理由も分析済み——「母」「配偶者」のような<strong>関係語</strong>が決定的な
+  データでは、LLMによる関係抽出の価値が残る（本手法の地図は固有名詞のみで関係を持たない）。</p>
+</section>
+
+<!-- ================================================================ -->
+<section>
+  <p class="kicker">§11 総括</p>
+  <h2>何が既知で、何がこの研究の新規性・進歩性か</h2>
+  <p class="measure">誠実に区別する。個々の部品には先行研究があり、本研究の価値は
+  「測る・説明する・定量する」の層と、その帰結としてのシステム性能にある:</p>
+  <div class="known">
+    <div class="col">
+      <h4>既知だったこと（先行研究）</h4>
+      <ul style="margin:.2rem 0;padding-left:1.2rem">
+        <li>橋渡し質問が最も難しいという観察（StratRAG 2026 ほか）</li>
+        <li>2ホップ目が質問に見える/見えないの<strong>二値</strong>分類（Regime-Conditional Retrieval 2026）</li>
+        <li>固有名詞グラフ＋PPRで多ホップに届くこと自体（HippoRAG 2024, SPRIG 2026）</li>
+        <li>グラフとベクトルの融合が効くという報告（SPRIG, Calibrated Fusion 2026）</li>
+        <li>MAX型の順位併合という手法（CombMAX 1994）</li>
+      </ul>
+    </div>
+    <div class="col ours">
+      <h4>本研究の新規性（先行になし）</h4>
+      <ul style="margin:.2rem 0;padding-left:1.2rem">
+        <li><strong>連続の隠れ度計器</strong>と、それによる失敗の層別（GPT-4oすら深隠れ0%という崖の発見）</li>
+        <li><strong>ボトルネックの局在</strong>: 失敗は選択でなく候補集め、の実証</li>
+        <li><strong>種設計の機序解明</strong>: キーワード検索上位を種にするグラフ検索は構造的に注入不能（100%一致の実測）＝隠れ文書に届くには固有名詞を種にする必要がある</li>
+        <li><strong>直交レジームの融合が単一手法を超える</strong>: 融合(min-rank)が、正しく調整した LinearRAG(λ0.05)を GoldR@5 で +6〜+29 上回る</li>
+        <li><strong>候補の価値の定量</strong>: 同一の現行LLMで+34.7〜+6.7、隠れ度に比例</li>
+        <li><strong>深さ限界の機序</strong>: dᵏ減衰の実測（16→268→1893位）と4ホップの壁</li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout">
+    <p class="k">進歩性（先行との差の大きさ）</p>
+    <p style="margin:0">これらの分析から導いた<strong>LLM不使用・調整パラメータなしのシステム</strong>が、
+    ①LLMでグラフを作る HippoRAG に同一コーパスで3データ中2つ同等以上、
+    ②<strong>正しく調整した LinearRAG(λ0.05) 単体を全データで上回る（GoldR@5 +6〜+29pt）</strong>、
+    ③同クラス最新手法SPRIGに+7.6pt、④どのLLMに渡しても候補差し替えだけで回答品質を底上げ（最大+34.7pt）——
+    つまり<strong>「なぜ効くか」の説明と「実際に効く」システムの両方</strong>を持つ点が、
+    現象報告に留まる近隣研究との差である。<strong>単一レジームの強い手法(LinearRAG)を、直交レジームの融合が超える</strong>のが核。</p>
+  </div>
+  <div class="honest">
+    <p class="k">限界（正直に）</p>
+    <p style="margin:.2rem 0">①4ホップ級の深い質問では全手法とも大きく劣化（機序は§9）。
+    ②良い候補がある前提での「選択」はLLMの読解が依然強い（同一候補でLLM+21〜23pt）。
+    ③関係語が決定的なデータ（2Wiki型）ではLLM構築グラフに及ばない。
+    ④隠れ度指標は使用する埋め込み・BM25に相対的（絶対量ではない）。
+    ⑤「文書種は注入不能」は減衰率 d=0.5 での結果（dに依存する条件付きの主張）。</p>
+  </div>
+</section>
+
+<footer>
+  <p>評価: 2Wiki / HotpotQA / MuSiQue（HippoRAG正典コーパス、パッセージ数 6,119 / 9,811 / 11,656）各1000問
+  （LLM比較のみ300問）。主指標 AllGoldHit@5（全正解文書が上位5件に揃う率）、比較用に GoldRecall@5 等も算出。
+  比較先: HippoRAG (NeurIPS 2024) / SPRIG (arXiv:2602.23372) / Calibrated Fusion (arXiv:2603.28886) /
+  Regime-Conditional Retrieval (arXiv:2604.09019) / StratRAG (arXiv:2604.22757)。
+  実験ログ: <span style="font-family:var(--mono)">docs/research/00-MASTER</span> ·
+  研究経緯の図解: <span style="font-family:var(--mono)">02-VISUAL-hidden-hop.html</span></p>
+</footer>
+</div>

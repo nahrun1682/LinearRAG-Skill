@@ -48,6 +48,9 @@ ap.add_argument("--add-n", type=int, default=20, help="candidates each injector 
 ap.add_argument("--limit", type=int, default=300)
 ap.add_argument("--rm3-fb", type=int, default=10, help="RM3 feedback docs")
 ap.add_argument("--rm3-terms", type=int, default=20, help="RM3 expansion terms")
+ap.add_argument("--lam", type=float, default=0.05,
+                help="LinearRAG dense-mix weight for +graphPPR (paper-faithful 0.05; "
+                     "old buggy default was 1.5)")
 ap.add_argument("--llm", action="store_true", help="also run GPT-4o selection per pool")
 ap.add_argument("--model", default="gpt-4o-2024-08-06")
 ap.add_argument("--workers", type=int, default=10)
@@ -126,7 +129,7 @@ for q in qs:
     rm3_add = toprows(bm25.get_scores(exp_query), a.add_n, base_set)
 
     # graph PPR injector
-    cd = retr.stage2_candidates(Q, top_n=a.base_n + a.add_n)
+    cd = retr.stage2_candidates(Q, top_n=a.base_n + a.add_n, lam=a.lam)
     ppr_rows = [int(r) for r in cd["cand_rows"] if int(r) not in base_set][:a.add_n]
 
     def dedup(seq):

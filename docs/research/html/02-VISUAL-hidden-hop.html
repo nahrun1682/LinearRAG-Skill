@@ -219,8 +219,9 @@
       <div>
         <h3>選択もトークンフリーに / システム化</h3>
         <p><span class="tag live">SURVIVED</span>可視/隠れを混ぜず併合する <strong>min-rank</strong>（CombMAX）で選択。
-        融合(min-rank)が、正しく調整した LinearRAG(λ0.05)を全データで上回り（GoldR@5 +6〜+29）、
-        HippoRAG に 2/3 で同等以上。候補生成が現行LLMを +34.7pt 押し上げ。</p>
+        融合(min-rank)が、正しく調整した LinearRAG(λ0.05)＝トークンフリー枠の最良を全データで上回る
+        （GoldR@5 +6.1/+28.6/+11.7）。候補生成が現行LLMを +34.7pt 押し上げ。
+        ※「HippoRAGに並ぶ」は見出しにしない（LinearRAG自身が主張済み＋現行のHippoRAG 2には大差負け）。</p>
       </div>
     </div>
     <div class="molt now">
@@ -512,7 +513,7 @@
     <div class="row"><div class="who">LinearRAG<small>arXiv 2510.10114</small></div>
       <div>出発点の乗り物。固有名詞グラフ＋PPR。論文値(λ0.05)なら健全な単一レジーム手法だが、<strong>可視偏重データ(hotpot)で弱く</strong>、直交レジームの融合(min-rank)が全データで上回る（GoldR@5 +6〜+29）。</div></div>
     <div class="row"><div class="who">HippoRAG<small>NeurIPS 2024</small></div>
-      <div>エンティティPPRで多ホップ＝我々の「純エンティティPPR」の思想の源流。ただし<strong>KG構築にLLM</strong>（トークン課金）。我々はトークンフリー。</div></div>
+      <div>エンティティPPRで多ホップ＝「純エンティティPPR」の思想の源流。<strong>KG構築にLLM</strong>。旧版(2024)とは互角圏だが、<strong>現行のHippoRAG 2(2025, R@5 90.4/96.3/74.7)には全データ大差負け</strong>＝LLM構築グラフの価値は残る（正直に）。</div></div>
     <div class="row"><div class="who">SPRIG<small>arXiv 2602.23372</small></div>
       <div>NER共起グラフ＋PPR、CPU-only。<strong>グラフを"検索器"として使い、種の置き方で損をしていた</strong>。我々は棲み分けを診断し"注入器＋融合"に。</div></div>
     <div class="row"><div class="who">StratRAG<small>2026</small></div>

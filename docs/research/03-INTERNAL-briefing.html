@@ -130,9 +130,9 @@
   <h1>「質問に映らない文書」をどう見つけるか<br>
   <span style="font-size:.62em;color:var(--muted);font-weight:400">— マルチホップ検索の失敗の解剖と、LLMを使わない処方 —</span></h1>
   <p class="lede">複数の文書をたどらないと答えられない質問（マルチホップ質問）で、RAGの検索はしばしば失敗する。
-  この研究は、その失敗の<strong>原因を測れるようにし</strong>（診断）、<strong>なぜ既存手法が伸び悩むのかの機序を特定し</strong>（解剖）、
-  <strong>LLM呼び出しゼロ・追加学習ゼロの検索法</strong>で、LLMを使う代表手法と同等以上の精度に到達した（処方）。
-  このページは前提知識なしで読めるように、その全体を解説する。</p>
+  この研究は、その失敗の<strong>原因を測れるようにし</strong>（診断）、<strong>何が隠れ文書に届くのかの機序を特定し</strong>（解剖）、
+  <strong>LLM呼び出しゼロ・追加学習ゼロ・調整パラメータゼロの融合検索</strong>で、トークンフリー検索の最良手法を
+  全データセットで上回った（処方）。このページは前提知識なしで読めるように、その全体を解説する。</p>
 </header>
 
 <!-- ================================================================ -->
@@ -140,8 +140,8 @@
   <p class="kicker">§0 全体像</p>
   <h2>この研究は、何をしたのか</h2>
   <p class="measure">一文でいうと——<strong>「マルチホップ質問でRAG検索が失敗する本当の原因を、
-  測定器を自作して突き止め、その原因分析から LLM 不要の検索法を組み立て、
-  LLM を使う代表手法と同等以上であることまで検証した」</strong>。
+  測定器を自作して突き止め、その原因分析から LLM 不要の融合検索を組み立て、
+  トークンフリー枠の最良手法を全データセットで上回ることまで検証した」</strong>。
   やったことは次の4ステップで、後の章はこの順に詳しく説明する:</p>
   <div class="card" style="padding:0;overflow:hidden">
     <div style="display:grid;grid-template-columns:52px 1fr;gap:1rem;padding:1.1rem 1.3rem;border-bottom:1px solid var(--line);align-items:start">
@@ -179,16 +179,17 @@
       <div>
         <p style="margin:0;font-weight:600;color:var(--ink)">検証した — 効果と限界を測定（§8–10）</p>
         <p style="margin:.25rem 0 0;font-size:.95rem">①最新LLMに渡す候補を差し替えるだけで回答品質が最大<strong>+34.7pt</strong>
-        （＝候補集めがボトルネックの直接実証）。②検索精度は、LLMでグラフを作る代表手法 <strong>HippoRAG と
-        同一コーパスで3データ中2つ同等以上</strong>（LLMゼロで）。③限界も測定——グラフの到達力は
-        1ホップごとに幾何級数で減衰し、4ホップに壁がある。</p>
+        （＝候補集めがボトルネックの直接実証）。②検索精度は、<strong>トークンフリー枠の最良
+        （正しく調整した LinearRAG）を全データセットで上回る</strong>（GoldR@5 +6.1/+28.6/+11.7）。
+        ③限界も測定——グラフの到達力は1ホップごとに幾何級数で減衰し4ホップに壁、
+        LLMでグラフを作る現行SOTA（HippoRAG 2）には依然大差（＝LLM構築グラフの価値の定量）。</p>
       </div>
     </div>
   </div>
   <p class="measure" style="font-size:.95rem;color:var(--muted)">研究の型としては
   <strong>診断（測る）→ 機序（説明する）→ 処方（組む）→ 検証（測り直す）</strong>の一本線。
   新規性は主に1・2・4の「測る・説明する」の層にあり（§11で先行研究と正確に区別する）、
-  3のシステムはその帰結として公表手法級の性能を出す。</p>
+  3のシステムはその帰結としてトークンフリー枠の最前線を押し上げる。</p>
 </section>
 
 <!-- ================================================================ -->
@@ -492,9 +493,11 @@
     </svg>
     <figcaption>差は「水が届く距離」ではなく「順位表に蛇口直結の特権者がいるか」。文書種は上位を占拠して新文書を締め出し、固有名詞種は全文書を公平に競わせる。</figcaption>
   </figure>
-  <p class="measure">つまり「グラフ検索が隠れ文書に届くか」は、<strong>種の置き場所（固有名詞か文書か）で決まる</strong>。
+  <p class="measure">つまり「グラフ検索が隠れ文書に届くか」は、<strong>種が何を運ぶか（エンティティ構造か、クエリ類似だけか）で決まる</strong>。
   この機序の特定——とくに<strong>Bの「キーワード検索上位を種にする流儀は構造的に注入不能」</strong>という実測——は
-  本研究のオリジナルであり、固有名詞グラフ検索を「キーワード検索と直交する独立レジーム」として位置づける根拠になる。</p>
+  本研究のオリジナルであり、固有名詞グラフ検索を「キーワード検索と直交する独立レジーム」として位置づける根拠になる。
+  実際、候補プールへの注入力を安価な手法で比較すると（BM25候補30件に各手法が20件追加、深く隠れた質問での全正解被覆率・2Wiki）:
+  <strong>グラフ伝播 51%、次点の意味検索 4%、テキスト拡張(RM3) 3%</strong>——桁違いの差になる。</p>
 </section>
 
 <!-- ================================================================ -->
@@ -598,25 +601,28 @@
 <!-- ================================================================ -->
 <section>
   <p class="kicker">§10 進歩性 — 公表手法との比較</p>
-  <h2>LLM不使用で、LLMを使う代表手法に並んだ</h2>
-  <p class="measure">最後に、診断から導いたシステム（融合プール＋min-rank、<strong>LLM完全不使用</strong>）の
-  検索精度を公表手法と比較する。最重要の比較相手は <strong>HippoRAG（NeurIPS 2024）</strong>——
-  知識グラフの構築に<strong>LLMを使う</strong>代表的手法で、<strong>本研究と同一の評価コーパス</strong>を使っているため
-  直接比較できる（指標 GoldRecall@5: 上位5件に入った正解文書の割合、各1000問）:</p>
+  <h2>トークンフリー枠の最前線を前進させた</h2>
+  <p class="measure">診断から導いたシステム（融合プール＋min-rank、<strong>LLM完全不使用・調整パラメータなし</strong>）の
+  検索精度を公表手法と比較する。位置づけを正確に: 「LLM不使用でもLLM使用手法（HippoRAG 2024）に届く」こと
+  自体は <strong>LinearRAG 自身が既に主張している</strong>（トークンゼロで生成精度 66.5 vs 59.3 等）。
+  本研究の進歩は、<strong>そのトークンフリー枠の最良（正しく調整した LinearRAG）を、さらに全データセットで
+  上回った</strong>ことにある（GoldRecall@5、同一コーパス、各1000問）:</p>
   <div class="tbl-scroll"><table>
-    <thead><tr><th>データセット</th><th>HippoRAG<br>（グラフ構築にLLM）</th><th>本手法<br>（LLM不使用）</th><th>判定</th></tr></thead>
+    <thead><tr><th>データセット</th><th>LinearRAG (λ0.05)<br>（トークンフリー最良）</th><th>本手法<br>（融合, LLM不使用）</th><th>参考: HippoRAG 2<br>（現行LLM使用SOTA）</th></tr></thead>
     <tbody>
-      <tr><td class="first">MuSiQue（最難）</td><td class="num">52.1</td><td class="num win">52.3</td><td><span class="pill g">同等</span></td></tr>
-      <tr><td class="first">HotpotQA</td><td class="num">76.2</td><td class="num win">79.5</td><td><span class="pill g">上回る</span></td></tr>
-      <tr><td class="first">2Wiki</td><td class="num win">89.5</td><td class="num">78.3</td><td><span class="pill h">負け</span></td></tr>
+      <tr><td class="first">2Wiki</td><td class="num">72.2</td><td class="num win">78.3 (+6.1)</td><td class="num">90.4</td></tr>
+      <tr><td class="first">HotpotQA</td><td class="num">50.9</td><td class="num win">79.5 (+28.6)</td><td class="num">96.3</td></tr>
+      <tr><td class="first">MuSiQue（最難）</td><td class="num">40.6</td><td class="num win">52.3 (+11.7)</td><td class="num">74.7</td></tr>
     </tbody>
   </table></div>
-  <p class="measure" style="font-size:.95rem">その他の比較: 同じLLM不使用クラスの最新手法
-  <strong>SPRIG</strong>（2026）を 2Wiki R@10 で <strong>87.0 vs 79.4</strong> と上回る。
-  グラフ×ベクトル融合の最新手法 <strong>Calibrated Fusion</strong>（2026）とは、
-  ほぼ同一のベースライン（本研究51.4 vs 彼ら51.7）から、改善幅 <strong>+25.0 vs +2.2</strong>。
-  2Wikiで HippoRAG に負ける理由も分析済み——「母」「配偶者」のような<strong>関係語</strong>が決定的な
-  データでは、LLMによる関係抽出の価値が残る（本手法の地図は固有名詞のみで関係を持たない）。</p>
+  <p class="measure" style="font-size:.95rem">
+    読み方: ①<strong>単一手法は必ずどこかで崩れる</strong>——LinearRAG は可視偏重の HotpotQA で素の
+    BM25(71.0) をも下回る 50.9。直交レジームの融合はどのデータでも安定して上（＝棲み分け診断の帰結）。
+    ②同じトークンフリー枠の SPRIG（2026）も 2Wiki R@10 で 87.0 vs 79.4 と上回る。
+    ③ただし<strong>LLM でグラフを作る現行SOTA（HippoRAG 2, 2025）には全データで大差の負け</strong>
+    （右列）。このギャップこそ「LLM によるグラフ構築・関係抽出の価値」の定量であり、
+    トークンフリーの限界として正直に報告する。旧 HippoRAG(2024, R@5 52.1/76.2/89.5) とは
+    2/3 で同等以上だが、これは旧世代との比較であり見出しにはしない。</p>
 </section>
 
 <!-- ================================================================ -->
@@ -632,6 +638,7 @@
         <li>橋渡し質問が最も難しいという観察（StratRAG 2026 ほか）</li>
         <li>2ホップ目が質問に見える/見えないの<strong>二値</strong>分類（Regime-Conditional Retrieval 2026）</li>
         <li>固有名詞グラフ＋PPRで多ホップに届くこと自体（HippoRAG 2024, SPRIG 2026）</li>
+        <li><strong>「LLM不使用でもLLM使用手法(HippoRAG)級」自体は LinearRAG が主張済み</strong>（トークンゼロで生成精度勝ち）</li>
         <li>グラフとベクトルの融合が効くという報告（SPRIG, Calibrated Fusion 2026）</li>
         <li>MAX型の順位併合という手法（CombMAX 1994）</li>
       </ul>
@@ -651,17 +658,18 @@
   <div class="callout">
     <p class="k">進歩性（先行との差の大きさ）</p>
     <p style="margin:0">これらの分析から導いた<strong>LLM不使用・調整パラメータなしのシステム</strong>が、
-    ①LLMでグラフを作る HippoRAG に同一コーパスで3データ中2つ同等以上、
-    ②<strong>正しく調整した LinearRAG(λ0.05) 単体を全データで上回る（GoldR@5 +6〜+29pt）</strong>、
-    ③同クラス最新手法SPRIGに+7.6pt、④どのLLMに渡しても候補差し替えだけで回答品質を底上げ（最大+34.7pt）——
+    ①<strong>トークンフリー枠の最良（正しく調整した LinearRAG λ0.05）を全データで上回り（GoldR@5 +6.1/+28.6/+11.7）</strong>、
+    ②同クラス最新手法SPRIGにも+7.6pt、③どのLLMに渡しても候補差し替えだけで回答品質を底上げ（最大+34.7pt、隠れ度に比例）——
     つまり<strong>「なぜ効くか」の説明と「実際に効く」システムの両方</strong>を持つ点が、
-    現象報告に留まる近隣研究との差である。<strong>単一レジームの強い手法(LinearRAG)を、直交レジームの融合が超える</strong>のが核。</p>
+    現象報告に留まる近隣研究との差である。核は<strong>「単一レジームの強い手法は必ずどこかのレジームで崩れる。
+    直交レジームの融合だけが全域で安定する」</strong>を診断・機序・実測の三点で示したこと。</p>
   </div>
   <div class="honest">
     <p class="k">限界（正直に）</p>
-    <p style="margin:.2rem 0">①4ホップ級の深い質問では全手法とも大きく劣化（機序は§9）。
-    ②良い候補がある前提での「選択」はLLMの読解が依然強い（同一候補でLLM+21〜23pt）。
-    ③関係語が決定的なデータ（2Wiki型）ではLLM構築グラフに及ばない。
+    <p style="margin:.2rem 0">①<strong>LLMでグラフを作る現行SOTA（HippoRAG 2, 2025）には全データで大差の負け</strong>
+    （R@5 90.4/96.3/74.7 vs 本手法 78.3/79.5/52.3）——LLM構築グラフ・関係抽出の価値は大きく残る。
+    ②4ホップ級の深い質問では全手法とも大きく劣化（機序は§9）。
+    ③良い候補がある前提での「選択」はLLMの読解が依然強い（同一候補でLLM+21〜23pt）。
     ④隠れ度指標は使用する埋め込み・BM25に相対的（絶対量ではない）。
     ⑤「文書種は注入不能」は減衰率 d=0.5 での結果（dに依存する条件付きの主張）。</p>
   </div>
@@ -670,7 +678,8 @@
 <footer>
   <p>評価: 2Wiki / HotpotQA / MuSiQue（HippoRAG正典コーパス、パッセージ数 6,119 / 9,811 / 11,656）各1000問
   （LLM比較のみ300問）。主指標 AllGoldHit@5（全正解文書が上位5件に揃う率）、比較用に GoldRecall@5 等も算出。
-  比較先: HippoRAG (NeurIPS 2024) / SPRIG (arXiv:2602.23372) / Calibrated Fusion (arXiv:2603.28886) /
+  比較先: LinearRAG (arXiv:2510.10114, λ=0.05 論文忠実で再現) / HippoRAG (NeurIPS 2024) /
+  HippoRAG 2 (2025, 公表値) / SPRIG (arXiv:2602.23372) / Calibrated Fusion (arXiv:2603.28886) /
   Regime-Conditional Retrieval (arXiv:2604.09019) / StratRAG (arXiv:2604.22757)。
   実験ログ: <span style="font-family:var(--mono)">docs/research/00-MASTER</span> ·
   研究経緯の図解: <span style="font-family:var(--mono)">02-VISUAL-hidden-hop.html</span></p>

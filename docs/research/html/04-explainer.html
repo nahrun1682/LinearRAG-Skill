@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hidden Hop — 研究解説（確定版）</title>
+<style>
+  :root{
+    --bg:#ECEFF3; --surface:#FCFDFE; --surface-2:#F1F4F8; --ink:#141A22;
+    --ink-soft:#39424E; --muted:#5E6976; --line:#D4DBE3;
+    --visible:#0C7A83; --visible-bg:#DCEDEF;
+    --hidden:#BC4620; --hidden-bg:#F6E2D9;
+    --accent:#28468A; --accent-bg:#DBE3F2;
+    --good:#1F8A5B; --good-bg:#DEF0E7; --warn:#9C6B12; --warn-bg:#F5EAD4;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Code",Menlo,Consolas,monospace;
+    --maxw:940px; --measure:66ch;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0C1016; --surface:#151B23; --surface-2:#1C232E; --ink:#E8EDF4;
+      --ink-soft:#BAC4D1; --muted:#8B96A6; --line:#28323E;
+      --visible:#39B2BA; --visible-bg:#0F2D2F; --hidden:#E77D4D; --hidden-bg:#341A0F;
+      --accent:#7F9DE8; --accent-bg:#172234; --good:#41B980; --good-bg:#11291D;
+      --warn:#D9A441; --warn-bg:#2C2410;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0C1016; --surface:#151B23; --surface-2:#1C232E; --ink:#E8EDF4;
+    --ink-soft:#BAC4D1; --muted:#8B96A6; --line:#28323E;
+    --visible:#39B2BA; --visible-bg:#0F2D2F; --hidden:#E77D4D; --hidden-bg:#341A0F;
+    --accent:#7F9DE8; --accent-bg:#172234; --good:#41B980; --good-bg:#11291D;
+    --warn:#D9A441; --warn-bg:#2C2410;
+  }
+  :root[data-theme="light"]{
+    --bg:#ECEFF3; --surface:#FCFDFE; --surface-2:#F1F4F8; --ink:#141A22;
+    --ink-soft:#39424E; --muted:#5E6976; --line:#D4DBE3;
+    --visible:#0C7A83; --visible-bg:#DCEDEF; --hidden:#BC4620; --hidden-bg:#F6E2D9;
+    --accent:#28468A; --accent-bg:#DBE3F2; --good:#1F8A5B; --good-bg:#DEF0E7;
+    --warn:#9C6B12; --warn-bg:#F5EAD4;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+    font-size:17px;line-height:1.72;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:clamp(1.2rem,4vw,3rem) clamp(1rem,4vw,2rem)}
+  p,li{color:var(--ink-soft)}
+  .measure{max-width:var(--measure)}
+  h1,h2,h3{font-family:var(--serif);color:var(--ink);text-wrap:balance;line-height:1.2;font-weight:600}
+  h1{font-size:clamp(2rem,5.4vw,3rem);margin:.2rem 0 .6rem;letter-spacing:-.015em}
+  h2{font-size:clamp(1.45rem,3.2vw,2rem);margin:0 0 .5rem;letter-spacing:-.01em}
+  h3{font-size:1.16rem;margin:1.7rem 0 .5rem}
+  .eyebrow{font-family:var(--mono);font-size:.72rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin:0 0 .8rem}
+  .secnum{font-family:var(--mono);font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin:0 0 .5rem}
+  header{border-bottom:2px solid var(--ink);padding-bottom:2rem;margin-bottom:1rem}
+  .lede{font-size:1.16rem;max-width:var(--measure);margin-top:1rem}
+  .thesis{font-family:var(--serif);font-style:italic;font-size:1.2rem;color:var(--ink);
+    border-left:3px solid var(--accent);padding:.3rem 0 .3rem 1.1rem;margin:1.4rem 0;max-width:var(--measure)}
+  section{margin:3.2rem 0;scroll-margin-top:1rem}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:clamp(1.1rem,3vw,1.6rem);margin:1.2rem 0}
+  .fig{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:clamp(1rem,3vw,1.5rem);margin:1.4rem 0;overflow-x:auto}
+  figcaption{font-size:.88rem;color:var(--muted);margin-top:.9rem;text-align:center;font-style:italic}
+  svg{display:block;max-width:100%;height:auto;margin:0 auto}
+  .formula{font-family:var(--mono);font-size:clamp(.9rem,2.3vw,1.06rem);background:var(--surface-2);
+    border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:.9rem 1.1rem;margin:1rem 0;overflow-x:auto;line-height:1.9}
+  .vtok{color:var(--visible);font-weight:600}.htok{color:var(--hidden);font-weight:600}.atok{color:var(--accent);font-weight:600}
+  table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.93rem}
+  th,td{padding:.55rem .7rem;text-align:center;border-bottom:1px solid var(--line)}
+  th{font-family:var(--mono);font-size:.71rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  td:first-child,th:first-child{text-align:left}
+  td.first{font-family:var(--serif)}
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .win{color:var(--good);font-weight:700}.lose{color:var(--hidden);font-weight:700}
+  .tbl-scroll{overflow-x:auto}
+  .pill{font-family:var(--mono);font-size:.72rem;padding:.15rem .55rem;border-radius:100px;white-space:nowrap;display:inline-block}
+  .pill.g{background:var(--good-bg);color:var(--good)}.pill.h{background:var(--hidden-bg);color:var(--hidden)}
+  .pill.a{background:var(--accent-bg);color:var(--accent)}.pill.w{background:var(--warn-bg);color:var(--warn)}
+  .grad{height:30px;border-radius:8px;margin:1rem 0 .3rem;background:linear-gradient(90deg,var(--visible),#8a8f7a 48%,var(--hidden))}
+  .grad-lbl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:.75rem;color:var(--muted)}
+  .legend{display:flex;flex-wrap:wrap;gap:1rem;margin:.4rem 0 .8rem;font-size:.8rem;font-family:var(--mono);color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:.4rem}
+  .sw{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .sw.v{background:var(--visible)}.sw.h{background:var(--hidden)}.sw.f{background:var(--accent)}.sw.g{background:var(--muted)}
+  .mirror{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:1rem}
+  @media(max-width:760px){.mirror{grid-template-columns:1fr}}
+  .mcol{border:1px solid var(--line);border-radius:12px;padding:1rem;background:var(--surface-2)}
+  .mcol h4{margin:0 0 .2rem;font-family:var(--serif);font-size:1.02rem;color:var(--ink)}
+  .binlbl{font-family:var(--mono);font-size:.72rem;color:var(--muted);margin:.8rem 0 .3rem;display:flex;align-items:center;gap:.4rem}
+  .dot{width:8px;height:8px;border-radius:50%}.dot.v{background:var(--visible)}.dot.h{background:var(--hidden)}
+  .mbar{display:grid;grid-template-columns:58px 1fr 38px;gap:.5rem;align-items:center;margin:.25rem 0}
+  .mbar .mn{font-family:var(--mono);font-size:.72rem;color:var(--muted);text-align:right}
+  .track{background:var(--bg);border-radius:4px;height:18px;overflow:hidden;border:1px solid var(--line)}
+  .fill{height:100%}.fill.v{background:var(--visible)}.fill.h{background:var(--hidden)}.fill.f{background:var(--accent)}.fill.g{background:var(--muted)}
+  .mv{font-family:var(--mono);font-size:.78rem;font-variant-numeric:tabular-nums;text-align:right;color:var(--ink)}
+  .callout{border:1px solid var(--accent);background:var(--accent-bg);border-radius:12px;padding:1.1rem 1.3rem;margin:1.4rem 0}
+  .callout .k{font-family:var(--mono);font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin:0 0 .3rem}
+  .honest{background:var(--warn-bg);border-radius:12px;padding:1.1rem 1.3rem;margin:1.4rem 0}
+  .honest .k{font-family:var(--mono);font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--warn);margin:0 0 .3rem}
+  .steps{display:grid;gap:0;border:1px solid var(--line);border-radius:14px;overflow:hidden;margin:1.2rem 0}
+  .steps .row{display:grid;grid-template-columns:44px 1fr;gap:1rem;padding:1rem 1.2rem;border-bottom:1px solid var(--line);align-items:start;background:var(--surface)}
+  .steps .row:last-child{border-bottom:0}
+  .steps .n{font-family:var(--serif);font-size:1.5rem;color:var(--accent);font-weight:600;line-height:1}
+  .steps .t{font-weight:600;color:var(--ink);margin:0}
+  .steps p{margin:.2rem 0 0;font-size:.94rem}
+  .walls{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin:1.2rem 0}
+  @media(max-width:720px){.walls{grid-template-columns:1fr}}
+  .wall{border:1px solid var(--line);border-radius:12px;padding:1.1rem;background:var(--surface)}
+  .wall .h{font-family:var(--serif);font-weight:600;color:var(--ink);font-size:1.05rem;margin:0 0 .3rem}
+  .wall .verdict{font-family:var(--mono);font-size:.72rem;padding:.14rem .5rem;border-radius:5px;background:var(--hidden-bg);color:var(--hidden)}
+  .wall p{font-size:.9rem;margin:.5rem 0 0}
+  .known{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1.2rem 0}
+  @media(max-width:700px){.known{grid-template-columns:1fr}}
+  .known .col{border:1px solid var(--line);border-radius:12px;padding:1.1rem;background:var(--surface)}
+  .known .col.ours{border-color:var(--good)}
+  .known h4{font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;margin:0 0 .6rem}
+  .known .col h4{color:var(--muted)}.known .col.ours h4{color:var(--good)}
+  .known li{font-size:.92rem;margin:.35rem 0}
+  .toc{font-family:var(--mono);font-size:.82rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:.3rem 1rem;margin:1.2rem 0 0}
+  .toc a{color:var(--muted);text-decoration:none;border-bottom:1px dotted var(--line)}
+  .toc a:hover{color:var(--accent)}
+  strong{color:var(--ink)}
+  footer{border-top:1px solid var(--line);margin-top:3rem;padding-top:1.4rem;color:var(--muted);font-size:.85rem}
+  @media (prefers-reduced-motion:no-preference){.flow{stroke-dasharray:5 6;animation:dash 1.4s linear infinite}@keyframes dash{to{stroke-dashoffset:-22}}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <p class="eyebrow">研究解説 · Hidden Hop · 監査済み確定版 2026-07</p>
+  <h1>マルチホップ検索は、どこで失敗し、無料でどこまで解けるか</h1>
+  <p class="lede measure">複数の文書をたどらないと答えられない質問で、RAGの検索はしばしば失敗する。
+  本研究は失敗の<strong>原因を測り</strong>、<strong>機序を説明し</strong>、
+  <strong>LLM呼び出しゼロの検索</strong>でどこまで解けるかを見極め、
+  <strong>「安く解ける部分」と「LLMにしか買えない部分」の境界を実測</strong>した。</p>
+  <p class="thesis">失敗の正体は「選び方」でなく「候補集め」——質問に映らない“隠れ文書”がそもそも候補に入らないこと。
+  それはトークンフリーに解けるが、その先（読解・深さ・関係）はLLMの価値が残る。</p>
+  <div class="toc">
+    <a href="#s1">1 問題</a><a href="#s2">2 計器</a><a href="#s3">3 診断</a><a href="#s4">4 機序</a>
+    <a href="#s5">5 システム</a><a href="#s6">6 候補の価値</a><a href="#s7">7 貪欲な限界探索</a>
+    <a href="#s8">8 どこが上限か</a><a href="#s9">9 新規性と限界</a>
+  </div>
+</header>
+
+<!-- 1 -->
+<section id="s1">
+  <p class="secnum">§1 問題</p>
+  <h2>2ホップ目は、質問に映らない</h2>
+  <p class="measure">RAGはLLMに答えさせる前に関連文書を<strong>検索して渡す</strong>。検索の質が回答の上限を決める。
+  検索は2段階——数万から<strong>50件に絞る「候補集め」</strong>と、そこから<strong>5件を選ぶ「選択」</strong>。
+  マルチホップ質問「曲 <em>Changed It</em> の歌手の出身地は？」は、①曲のページで歌手（Nicki Minaj）を知り、
+  ②歌手のページで出身地を知る——<strong>両方揃って初めて</strong>答えられる。問題は2ホップ目だ。</p>
+  <figure class="fig">
+    <svg viewBox="0 0 760 240" role="img" aria-label="Hidden Hopの図">
+      <rect x="14" y="96" width="158" height="54" rx="9" fill="var(--accent-bg)" stroke="var(--accent)"/>
+      <text x="93" y="119" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--ink)">質問</text>
+      <text x="93" y="137" text-anchor="middle" font-size="10" fill="var(--muted)">「Changed It の歌手の出身地は？」</text>
+      <line x1="172" y1="123" x2="286" y2="123" stroke="var(--visible)" stroke-width="2.5"/>
+      <text x="229" y="114" text-anchor="middle" font-size="9.5" fill="var(--visible)">言葉が一致 ○</text>
+      <rect x="286" y="88" width="176" height="70" rx="9" fill="var(--visible-bg)" stroke="var(--visible)"/>
+      <text x="374" y="111" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--ink)">文書① 曲のページ</text>
+      <text x="374" y="129" text-anchor="middle" font-size="10" fill="var(--visible)">「歌手は Nicki Minaj」</text>
+      <text x="374" y="146" text-anchor="middle" font-size="10" fill="var(--muted)">検索順位: 上位 ✓（可視）</text>
+      <line x1="462" y1="123" x2="552" y2="123" stroke="var(--ink)" stroke-width="1.5"/>
+      <text x="507" y="114" text-anchor="middle" font-size="9.5" fill="var(--muted)">人名がつなぐ</text>
+      <rect x="552" y="88" width="192" height="70" rx="9" fill="var(--hidden-bg)" stroke="var(--hidden)"/>
+      <text x="648" y="111" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--ink)">文書② 歌手のページ</text>
+      <text x="648" y="129" text-anchor="middle" font-size="10" fill="var(--hidden)">質問の言葉がゼロ</text>
+      <text x="648" y="146" text-anchor="middle" font-size="10" fill="var(--hidden)">検索順位: 2403位 ✗（隠れ）</text>
+      <path d="M93 150 Q 374 232 648 158" fill="none" stroke="var(--hidden)" stroke-width="1.5" stroke-dasharray="3 5" opacity=".6"/>
+      <text x="374" y="224" text-anchor="middle" font-size="10" fill="var(--hidden)">質問からは語彙的にも意味的にも届かない ＝ Hidden Hop（隠れホップ）</text>
+    </svg>
+    <figcaption>2ホップ目の正解には質問の言葉が一切ない。実測でキーワード検索2403位——「候補50件」に絶対入らない。</figcaption>
+  </figure>
+</section>
+
+<!-- 2 -->
+<section id="s2">
+  <p class="secnum">§2 計器</p>
+  <h2>「隠れ度」を連続値で測る</h2>
+  <p class="measure">まず、正解文書がどれだけ質問から見えないかを数値化する物差しを作った。
+  2種類の検索（意味・語彙）の両方から見て、コーパス全体でどれだけ下位に沈むか:</p>
+  <div class="formula">
+    hidden(g) = 1 − ½·( <span class="vtok">P<sub>意味</sub>(g)</span> + <span class="htok">P<sub>語彙</sub>(g)</span> )
+    <span style="color:var(--muted);font-size:.85em">　P=順位パーセンタイル、質問単位は最も隠れた正解のmax、四分位で層別</span>
+  </div>
+  <div class="grad"></div>
+  <div class="grad-lbl"><span>hidden ≈ 0 可視</span><span>隠れ（橋の先） hidden ≈ 1</span></div>
+  <p class="measure" style="font-size:.94rem;margin-top:1rem">先行研究には「2ホップ目が質問に出るか」の<em>二値</em>分類はあったが、
+  <strong>連続の計器</strong>にしたことで「どのくらい隠れているとどの手法が死ぬか」を層別できる。これが以後の全実験のレンズになる。</p>
+</section>
+
+<!-- 3 -->
+<section id="s3">
+  <p class="secnum">§3 診断</p>
+  <h2>失敗は「選択」でなく「候補集め」</h2>
+  <p class="measure">この計器で質問を隠れ度の四分位に分け、様々な手法を層別すると、全手法が<strong>同じ崖</strong>から落ちる（2Wiki）:</p>
+  <div class="card">
+    <div class="tbl-scroll"><table>
+      <thead><tr><th>隠れ度</th><th>キーワード検索</th><th>小型AI再選択</th><th>GPT-4oに選ばせる</th></tr></thead>
+      <tbody>
+        <tr><td class="first">可視</td><td class="num">85%</td><td class="num">100%</td><td class="num">91%</td></tr>
+        <tr><td class="first">やや隠れ</td><td class="num">47%</td><td class="num">64%</td><td class="num">75%</td></tr>
+        <tr><td class="first">隠れ</td><td class="num">9%</td><td class="num">11%</td><td class="num">15%</td></tr>
+        <tr><td class="first"><strong>深く隠れ</strong></td><td class="num lose">0%</td><td class="num lose">0%</td><td class="num lose"><strong>0%</strong></td></tr>
+      </tbody>
+    </table></div>
+    <p style="margin:.6rem 0 0"><strong>深く隠れた文書では、GPT-4oに選ばせても0%</strong>。原因は単純で、
+    正解が<strong>候補50件にそもそも入っていない</strong>。賢い選択器も、候補に無いものは選べない。</p>
+  </div>
+  <div class="callout"><p class="k">診断</p>
+    <p style="margin:0">マルチホップ検索のボトルネックは、50→5件の<strong>選択</strong>ではなく、数万→50件の<strong>候補集め</strong>にある。以後、照準をここに合わせる。</p></div>
+</section>
+
+<!-- 4 -->
+<section id="s4">
+  <p class="secnum">§4 機序</p>
+  <h2>グラフの多段伝播だけが、橋を渡って隠れ文書に届く</h2>
+  <p class="measure">隠れ文書に届く唯一の安価な道具＝グラフ検索。文書と固有名詞を「言及」で結んだ地図の上で、
+  質問の固有名詞から水を染み出させる（PPR）。水は<strong>文書→固有名詞→文書</strong>と橋を渡り、
+  クエリと似ていない2ホップ先にも届く——キーワード検索や意味検索の「クエリとの類似度で並べる」やり方では、
+  原理的に届かない領域だ。</p>
+  <figure class="fig">
+    <svg viewBox="0 0 620 210" role="img" aria-label="グラフ多段伝播">
+      <circle cx="66" cy="105" r="20" fill="var(--accent)"/><text x="66" y="109" text-anchor="middle" font-size="10" fill="#fff" font-weight="700">種</text>
+      <text x="66" y="142" text-anchor="middle" font-size="9" fill="var(--muted)">質問の固有名詞</text>
+      <text x="66" y="155" text-anchor="middle" font-size="8" fill="var(--muted)">「Changed It」</text>
+      <rect x="160" y="52" width="120" height="34" rx="7" fill="var(--visible-bg)" stroke="var(--visible)"/>
+      <text x="220" y="72" text-anchor="middle" font-size="9.5" fill="var(--visible)">文書① 曲のページ（1歩）</text>
+      <circle cx="360" cy="69" r="17" fill="var(--surface)" stroke="var(--ink)"/><text x="360" y="66" text-anchor="middle" font-size="8" fill="var(--ink)">橋</text>
+      <text x="360" y="79" text-anchor="middle" font-size="7.5" fill="var(--muted)">Minaj</text>
+      <rect x="430" y="120" width="150" height="46" rx="7" fill="var(--hidden-bg)" stroke="var(--hidden)"/>
+      <text x="505" y="140" text-anchor="middle" font-size="9.5" fill="var(--hidden)">文書② 歌手のページ</text>
+      <text x="505" y="155" text-anchor="middle" font-size="8.5" fill="var(--hidden)">隠れ文書（2歩で到達）</text>
+      <line class="flow" x1="86" y1="99" x2="160" y2="72" stroke="var(--accent)" stroke-width="2.2"/>
+      <line class="flow" x1="280" y1="68" x2="344" y2="69" stroke="var(--accent)" stroke-width="2.2"/>
+      <line class="flow" x1="372" y1="82" x2="440" y2="122" stroke="var(--accent)" stroke-width="2.2"/>
+      <text x="300" y="195" text-anchor="middle" font-size="9.5" fill="var(--visible)">キーワード検索2403位の文書が、グラフ伝播では上位に（経路確認済み）</text>
+    </svg>
+    <figcaption>水は橋（固有名詞）を渡って多段に広がる。この多段伝播が、クエリ類似度では届かない隠れホップを候補プールに引き込む。</figcaption>
+  </figure>
+  <p class="measure">この<strong>注入力</strong>を安価な手法で比べると差は桁違い（深く隠れた質問での全正解被覆率）:</p>
+  <div class="card">
+    <div class="legend"><span><i class="sw f"></i>グラフ伝播</span><span><i class="sw h"></i>意味検索(dense)</span><span><i class="sw g"></i>テキスト拡張(RM3)</span></div>
+    <div class="mbar"><span class="mn">2Wiki</span><div class="track"><div class="fill f" style="width:51%"></div></div><span class="mv">51% / 4% / 3%</span></div>
+    <div class="mbar"><span class="mn">MuSiQue</span><div class="track"><div class="fill f" style="width:29%"></div></div><span class="mv">29% / 6% / 0%</span></div>
+    <p style="margin:.5rem 0 0;font-size:.9rem;color:var(--muted)">深隠れビンでは、グラフ注入だけが隠れホップをプールに届ける（意味検索・テキスト拡張は届かない）。</p>
+  </div>
+</section>
+
+<!-- 5 -->
+<section id="s5">
+  <p class="secnum">§5 システム</p>
+  <h2>直交レジームを混ぜず併合する</h2>
+  <p class="measure">隠れ度で層別すると、キーワード検索とエンティティ伝播は<strong>鏡像</strong>——前者は可視の王で隠れで全滅、後者は逆。
+  どちらも単一では必ずどこかで崩れる。だから<strong>混ぜず併合</strong>する: min-rank（各候補を「良い方の順位」で採用。順位を足すと隠れホップが沈む＝古典CombMAX）。</p>
+  <div class="mirror">
+    <div class="mcol"><h4>2Wiki</h4>
+      <div class="binlbl"><span class="dot v"></span>可視</div>
+      <div class="mbar"><span class="mn">語彙</span><div class="track"><div class="fill g" style="width:100%"></div></div><span class="mv">100</span></div>
+      <div class="mbar"><span class="mn">グラフ</span><div class="track"><div class="fill h" style="width:88%"></div></div><span class="mv">88</span></div>
+      <div class="mbar"><span class="mn">融合</span><div class="track"><div class="fill f" style="width:100%"></div></div><span class="mv">100</span></div>
+      <div class="binlbl"><span class="dot h"></span>深隠れ</div>
+      <div class="mbar"><span class="mn">語彙</span><div class="track"><div class="fill g" style="width:1%"></div></div><span class="mv">0</span></div>
+      <div class="mbar"><span class="mn">グラフ</span><div class="track"><div class="fill h" style="width:60%"></div></div><span class="mv">60</span></div>
+      <div class="mbar"><span class="mn">融合</span><div class="track"><div class="fill f" style="width:60%"></div></div><span class="mv">60</span></div>
+    </div>
+    <div class="mcol"><h4>HotpotQA</h4>
+      <div class="binlbl"><span class="dot v"></span>可視</div>
+      <div class="mbar"><span class="mn">語彙</span><div class="track"><div class="fill g" style="width:100%"></div></div><span class="mv">100</span></div>
+      <div class="mbar"><span class="mn">グラフ</span><div class="track"><div class="fill h" style="width:75%"></div></div><span class="mv">75</span></div>
+      <div class="mbar"><span class="mn">融合</span><div class="track"><div class="fill f" style="width:100%"></div></div><span class="mv">100</span></div>
+      <div class="binlbl"><span class="dot h"></span>隠れ</div>
+      <div class="mbar"><span class="mn">語彙</span><div class="track"><div class="fill g" style="width:48%"></div></div><span class="mv">48</span></div>
+      <div class="mbar"><span class="mn">グラフ</span><div class="track"><div class="fill h" style="width:68%"></div></div><span class="mv">68</span></div>
+      <div class="mbar"><span class="mn">融合</span><div class="track"><div class="fill f" style="width:78%"></div></div><span class="mv">78</span></div>
+    </div>
+    <div class="mcol"><h4>MuSiQue</h4>
+      <div class="binlbl"><span class="dot v"></span>可視</div>
+      <div class="mbar"><span class="mn">語彙</span><div class="track"><div class="fill g" style="width:90%"></div></div><span class="mv">90</span></div>
+      <div class="mbar"><span class="mn">グラフ</span><div class="track"><div class="fill h" style="width:62%"></div></div><span class="mv">62</span></div>
+      <div class="mbar"><span class="mn">融合</span><div class="track"><div class="fill f" style="width:99%"></div></div><span class="mv">99</span></div>
+      <div class="binlbl"><span class="dot h"></span>深隠れ</div>
+      <div class="mbar"><span class="mn">語彙</span><div class="track"><div class="fill g" style="width:1%"></div></div><span class="mv">0</span></div>
+      <div class="mbar"><span class="mn">グラフ</span><div class="track"><div class="fill h" style="width:29%"></div></div><span class="mv">29</span></div>
+      <div class="mbar"><span class="mn">融合</span><div class="track"><div class="fill f" style="width:32%"></div></div><span class="mv">32</span></div>
+    </div>
+  </div>
+  <h3>結果: トークンフリー枠の最良を全データで上回る</h3>
+  <p class="measure">検索精度（GoldRecall@5、同一コーパス、各1000問）。正しく調整した LinearRAG（λ0.05）＝トークンフリーの最良手法との比較:</p>
+  <div class="tbl-scroll"><table>
+    <thead><tr><th>データ</th><th>LinearRAG λ0.05<br>（TF枠の最良）</th><th>本手法 min-rank融合<br>（TF・調整なし）</th><th>参考: HippoRAG 2<br>（現行LLM-SOTA）</th></tr></thead>
+    <tbody>
+      <tr><td class="first">2Wiki</td><td class="num">72.2</td><td class="num win">78.3 (+6.1)</td><td class="num">90.4</td></tr>
+      <tr><td class="first">HotpotQA</td><td class="num">50.9</td><td class="num win">79.5 (+28.6)</td><td class="num">96.3</td></tr>
+      <tr><td class="first">MuSiQue</td><td class="num">40.6</td><td class="num win">52.3 (+11.7)</td><td class="num">74.7</td></tr>
+    </tbody>
+  </table></div>
+  <p class="measure" style="font-size:.93rem">LinearRAG は単一レジームゆえ可視偏重の HotpotQA で素の BM25(71.0) すら下回る 50.9。
+  融合はどのデータでも安定して上。<span style="color:var(--muted)">（TF＝トークンフリー。「LLM不使用でHippoRAG級」自体は LinearRAG が既に主張済みなので見出しにしない。現行 HippoRAG 2 との差は §9 で正直に扱う。）</span></p>
+</section>
+
+<!-- 6 -->
+<section id="s6">
+  <p class="secnum">§6 候補の価値</p>
+  <h2>同じLLMでも、渡す候補で回答が+35点変わる</h2>
+  <p class="measure">「候補集めがボトルネック」の決定的検証。<strong>選択器を最新LLM（GPT-5.4-mini）に固定</strong>し、渡す候補だけ差し替えた（全正解が最終5件に揃った率、各300問）:</p>
+  <div class="card">
+    <div class="legend"><span><i class="sw g"></i>従来のキーワード候補</span><span><i class="sw f"></i>本手法の融合候補</span></div>
+    <div class="mbar"><span class="mn">2Wiki</span><div class="track"><div class="fill g" style="width:43%"></div></div><span class="mv">43.0</span></div>
+    <div class="mbar"><span class="mn"></span><div class="track"><div class="fill f" style="width:77.7%"></div></div><span class="mv">77.7</span></div>
+    <div class="mbar"><span class="mn">MuSiQue</span><div class="track"><div class="fill g" style="width:16.3%"></div></div><span class="mv">16.3</span></div>
+    <div class="mbar"><span class="mn"></span><div class="track"><div class="fill f" style="width:29%"></div></div><span class="mv">29.0</span></div>
+    <div class="mbar"><span class="mn">Hotpot</span><div class="track"><div class="fill g" style="width:76%"></div></div><span class="mv">76.0</span></div>
+    <div class="mbar"><span class="mn"></span><div class="track"><div class="fill f" style="width:82.7%"></div></div><span class="mv">82.7</span></div>
+  </div>
+  <p class="measure">改善 <strong>+34.7 / +12.7 / +6.7</strong>——並びは各データの<strong>隠れ度の高い順</strong>と一致（§2の計器が効き所を予言）。
+  LLM側は不変なので、<strong>候補集めが上限を決める</strong>直接の実証。しかも良いLLMほど良い候補を活かすので、LLMの世代交代に頑健。</p>
+</section>
+
+<!-- 7 -->
+<section id="s7">
+  <p class="secnum">§7 貪欲な限界探索</p>
+  <h2>SOTAを本気で狙い、境界を実測した</h2>
+  <p class="measure">現行LLM-SOTA（HippoRAG 2）との残差を、トークンフリーで貪欲に埋めにいった。
+  各方向に<strong>成功基準とキル基準を事前宣言</strong>し、感情でなく数字で進退を決めた（λ問題で学んだ規律）。3方向すべてが壁に当たった:</p>
+  <div class="walls">
+    <div class="wall"><p class="h">選択（Hotpot）</p><span class="verdict">6敗</span>
+      <p>プールは飽和(94.6)、LLMなら82.7出るのに安価選択は61.7。ペア選択も即死。トークンフリー選択は<strong>set-aware読解に届かない</strong>。</p></div>
+    <div class="wall"><p class="h">深さ（MuSiQue）</p><span class="verdict">プール止まり</span>
+      <p>反復再シードで4hopプール10→15と機序は効くが、<strong>R@5に変換されない</strong>（深い正解がプールに入っても top-5 に届かない）。</p></div>
+    <div class="wall"><p class="h">関係（2Wiki）</p><span class="verdict">天井僅少</span>
+      <p>到達オラクル: 外した隠れ正解の55%は<strong>橋がグラフに無い</strong>、45%も<strong>ハブ経由</strong>(df中央値680)。関係ラベルは刺さらない。</p></div>
+  </div>
+  <div class="callout"><p class="k">境界地図（この探索の成果）</p>
+    <p style="margin:0"><strong>候補生成は安く解けた。選択・深さ・関係の残差は、読解/推論を要する＝LLMが実際に買っているもの。</strong>
+    貪欲に全方向を殴ったからこそ、この境界が数字で引けた。失敗も「境界の実測」として論文の芯になる。</p></div>
+</section>
+
+<!-- 8 -->
+<section id="s8">
+  <p class="secnum">§8 これは上限か</p>
+  <h2>「トークンフリーの上限」ではない — 我々の構成の、安価な改良の限界</h2>
+  <p class="measure">正確に線を引く。我々が示したのは「<strong>LinearRAG流の共起グラフ＋2021年の埋め込み＋単一パスPPR</strong>という1構成での、安価な改良の限界」。分野の上限ではない。</p>
+  <div class="known">
+    <div class="col"><h4>上限に近い（本物の壁）</h4>
+      <ul style="margin:.2rem 0;padding-left:1.2rem">
+        <li><strong>トークンフリー＆訓練フリーの“選択”</strong>——6敗＋構造的理由（pointwise寄りで set-aware 読解ができない）。LLMの価値が最も置き換えにくい。</li>
+      </ul></div>
+    <div class="col ours"><h4>上限ではない（残るヘッドルーム）</h4>
+      <ul style="margin:.2rem 0;padding-left:1.2rem">
+        <li><strong>エンティティリンク品質</strong>——外した55%は「橋がグラフに無い」＝NER/正規化の失敗。coref・別名リンクは全部TFで可能。<em>次に登るならここ</em>。</li>
+        <li><strong>現代の埋め込み器</strong>（bge-m3等、ローカル＝TF）。可視側もリンク側も底上げされうる。</li>
+        <li><strong>別のグラフ構造</strong>（文グラフ・ハイパーグラフ・命題グラフ）。競合が今まさに登っている。</li>
+        <li><strong>反復検索を精緻に</strong>（我々の再シードは粗い1周だけ）。</li>
+      </ul></div>
+  </div>
+  <p class="measure" style="font-size:.94rem">だから論文の主張は「トークンフリー打ち止め」ではなく——
+  <strong>「候補生成は安価に解ける。LLM-SOTAとの残差は読解/選択に集中し、そこが最も置き換えにくい。残る安価なレバー（リンク品質・現代埋め込み・別構造・反復）は future work」</strong>。
+  査読で「bge-m3使えば？」と刺されても、明示的に範囲外と置いてあるので受けられる。</p>
+</section>
+
+<!-- 9 -->
+<section id="s9">
+  <p class="secnum">§9 総括</p>
+  <h2>何が新しく、何が限界か</h2>
+  <div class="known">
+    <div class="col"><h4>既知（先行研究）</h4>
+      <ul style="margin:.2rem 0;padding-left:1.2rem">
+        <li>橋質問が最難という観察（StratRAG）</li>
+        <li>可視/不可視の二値分類（Regime-Conditional 2026）</li>
+        <li>エンティティPPRが多ホップに効く（HippoRAG/SPRIG）</li>
+        <li>「トークンゼロでHippoRAG級」（LinearRAG自身）／グラフ×語彙融合（SPRIG等）</li>
+        <li>MAX型順位併合（CombMAX 1994）</li>
+      </ul></div>
+    <div class="col ours"><h4>本研究の新規性</h4>
+      <ul style="margin:.2rem 0;padding-left:1.2rem">
+        <li><strong>連続の隠れ度計器</strong>と失敗の層別（GPT-4oすら深隠れ0%の崖）</li>
+        <li><strong>ボトルネックの局在</strong>（選択でなく候補集め）</li>
+        <li><strong>グラフ多段伝播の注入優位</strong>（深隠れで51% vs dense 4%／RM3 3%）</li>
+        <li><strong>候補の価値の定量</strong>（同一現行LLMで+34.7、隠れ度に比例）</li>
+        <li><strong>安く解ける/LLMの価値の境界地図</strong>（選択・深さ・関係の限界を機序込みで実測）</li>
+      </ul></div>
+  </div>
+  <div class="honest"><p class="k">限界（正直に）</p>
+    <p style="margin:.2rem 0">① 現行LLM-SOTA（HippoRAG 2: R@5 90.4/96.3/74.7）には全データ大差負け＝<strong>LLM構築グラフ・読解の価値の定量</strong>。
+    ② 選択はLLMが上（同一候補で+21〜23）。③ 4ホップで全手法劣化（グラフ到達のd<sup>k</sup>減衰、最難正解の順位 16→268→1893）。
+    ④ 隠れ度指標は使用する埋め込み・BM25に相対的。⑤ 純エンティティPPRは単独最強ではなく、
+    融合の相方として最良（RRFとの直交性が高い、経験的観察）。</p></div>
+  <p class="thesis" style="margin-top:1.6rem">診断 → 機序 → 処方 → 検証 → 境界の地図。
+  「大発見」ではないが、嘘が一つもなく、道具と説明と限界の揃った研究になった。</p>
+</section>
+
+<footer>
+  <p>評価: 2Wiki / HotpotQA / MuSiQue（HippoRAG正典コーパス、6,119 / 9,811 / 11,656 パッセージ）各1000問（LLM比較のみ300問）、en_core_web_trf。
+  主指標 AllGoldHit@5、比較用 GoldRecall@5。LinearRAG は論文忠実 λ=0.05 で再現。
+  比較先: LinearRAG (2510.10114) / HippoRAG (2405.14831) / HippoRAG 2 (2025) / SPRIG (2602.23372) /
+  Calibrated Fusion (2603.28886) / Regime-Conditional (2604.09019) / StratRAG (2604.22757)。
+  実験ログ全量: <span style="font-family:var(--mono)">docs/research/00-MASTER</span>（λ問題の経緯は §15）。</p>
+</footer>
+</div>
+
+</body>
+</html>
